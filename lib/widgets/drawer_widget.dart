@@ -19,7 +19,7 @@ class DrawerWidget extends StatelessWidget {
                       height: 72,
                     ),
                     const Text(
-                      'Flutibre',
+                      'Calibre Touch',
                       style: TextStyle(fontSize: 18),
                     ),
                   ],

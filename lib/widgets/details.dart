@@ -18,6 +18,7 @@ class Details extends ConsumerWidget {
 
     return selectedBook != null
         ? ListView(
+            padding: const EdgeInsets.only(right: 8),
             children: <Widget>[
               topContent(selectedBook, context),
               bottomContent(selectedBook)
@@ -123,7 +124,7 @@ class Details extends ConsumerWidget {
               shadowColor: Colors.yellow.shade900,
               child: Image(
                 image: AssetImage(selectedBook.image),
-                fit: BoxFit.cover,
+                fit: BoxFit.fitWidth,
               ),
             ),
           ),

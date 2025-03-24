@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../screens/screens.dart';
+import '../../pages/pages.dart';
 import 'routes.dart';
 
 final navigationKey = GlobalKey<NavigatorState>();
@@ -14,7 +14,7 @@ final routesProvider = Provider<GoRouter>(
           GoRoute(
               path: '/',
               builder: (BuildContext context, GoRouterState state) {
-                return const Home();
+                return const HomePage();
               },
               routes: appRoutes),
         ]);

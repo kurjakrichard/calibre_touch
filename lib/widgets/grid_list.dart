@@ -85,8 +85,7 @@ class GridList extends ConsumerWidget {
                 final isMobile = ResponsiveWidget.isMobile(context);
 
                 if (isMobile) {
-                  GoRouter.of(context).go(RouteLocation.bookDetails);
-                  //context.go(RouteLocation.bookDetails);
+                  context.go(RouteLocation.bookDetails);
                 }
 
                 /*     String path = '/home/sire/vscode/flutibre/${book.image}';

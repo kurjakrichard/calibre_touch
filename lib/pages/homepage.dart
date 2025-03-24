@@ -11,19 +11,19 @@ import '../providers/providers.dart';
 import '../utils/utils.dart';
 import '../widgets/widgets.dart';
 
-class Home extends ConsumerStatefulWidget {
-  static Home builder(
+class HomePage extends ConsumerStatefulWidget {
+  static HomePage builder(
     BuildContext context,
     GoRouterState state,
   ) =>
-      const Home();
-  const Home({super.key});
+      const HomePage();
+  const HomePage({super.key});
 
   @override
-  ConsumerState<Home> createState() => _HomeState();
+  ConsumerState<HomePage> createState() => _HomeState();
 }
 
-class _HomeState extends ConsumerState<Home> {
+class _HomeState extends ConsumerState<HomePage> {
   Book? selectedBook;
   PlatformFile? _pickedfile;
   // ignore: unused_field
@@ -37,7 +37,7 @@ class _HomeState extends ConsumerState<Home> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Desktop'),
+        title: const Text('Calibre Touch'),
       ),
       drawer: isDesktop ? null : const DrawerWidget(),
       floatingActionButton: FloatingActionButton(
