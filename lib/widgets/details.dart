@@ -7,9 +7,10 @@ import '../utils/utils.dart';
 import 'rating_bar.dart';
 import 'package:flutter/material.dart';
 
-class Detail extends ConsumerWidget {
-  const Detail({super.key, required this.isPage});
-  final bool isPage;
+class Details extends ConsumerWidget {
+  const Details({
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,8 +33,8 @@ class Detail extends ConsumerWidget {
 
   Widget topContent(Book selectedBook, BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      var isWide = constraints.maxWidth > maxWidth;
-      if (!isWide && isPage) {
+      var isWide = constraints.maxWidth > maxWidth / 3;
+      if (!isWide) {
         return Container(
           padding: const EdgeInsets.only(bottom: 16.0, left: 16),
           child: Column(

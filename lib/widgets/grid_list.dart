@@ -7,6 +7,7 @@ import '../config/config.dart';
 import '../data/data_export.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
+import 'widgets.dart';
 
 class GridList extends ConsumerWidget {
   const GridList({super.key, this.count = 1});
@@ -70,10 +71,6 @@ class GridList extends ConsumerWidget {
                                   Navigator.of(context).pop();
                                   AppAlerts.showAlertDeleteDialog(
                                       context: context, ref: ref, book: book);
-                                  /* ref
-                                      .read(booksProvider.notifier)
-                                      .deleteBook(book);
-                                  */
                                 },
                                 child: const Text('Törlés',
                                     style: TextStyle(fontSize: 16),
@@ -83,18 +80,15 @@ class GridList extends ConsumerWidget {
                       );
                     });
               },
-              onLongPress: () {
-                showDialog(
-                    context: context,
-                    builder: (_) {
-                      return const AlertDialog(
-                        title: Text("Dialog Title"),
-                        content: Text("This is the dialog content."),
-                      );
-                    });
-              },
-              onTap: () async {
+              onTap: () {
                 ref.read(selectedBookProvider.notifier).setSelectedBook(book);
+                final isMobile = ResponsiveWidget.isMobile(context);
+
+                if (isMobile) {
+                  GoRouter.of(context).go(RouteLocation.bookDetails);
+                  //context.go(RouteLocation.bookDetails);
+                }
+
                 /*     String path = '/home/sire/vscode/flutibre/${book.image}';
 
                 File image =

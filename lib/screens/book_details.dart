@@ -19,12 +19,8 @@ class BookDetails extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     Book? selectedBook = ref.watch(selectedBookProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(selectedBook!.title),
-      ),
-      body: const Detail(
-        isPage: true,
-      ),
+      appBar: AppBar(title: Text(selectedBook!.title)),
+      body: const Details(),
     );
   }
 }

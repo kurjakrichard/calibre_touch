@@ -33,71 +33,64 @@ class _HomeState extends ConsumerState<Home> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = Responsive.isDesktop(context);
-    final isTablet = Responsive.isTablet(context);
-    final isMobile = Responsive.isMobile(context);
+    final isDesktop = ResponsiveWidget.isDesktop(context);
 
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Desktop'),
-        ),
-        drawer: isDesktop ? null : const SideMenu(),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            Book? newBook = await pickFile();
-            if (newBook != null) {
-              // ignore: use_build_context_synchronously
-              _insertBook(newBook, context);
-            }
-          },
-          child: const Icon(Icons.add),
-        ),
-        body: (isMobile)
-            ? SafeArea(child: bookList())
-            : isTablet
-                ? Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: bookList(count: 1.5),
-                      ),
-                      const VerticalDivider(
-                        thickness: 4,
-                        color: Colors.transparent,
-                      ),
-                      Expanded(
-                        flex: 1,
-                        child: bookDetails(),
-                      )
-                    ],
-                  )
-                : Row(
-                    children: [
-                      const Expanded(
-                        flex: 1,
-                        child: SideMenu(),
-                      ),
-                      Expanded(
-                        flex: 5,
-                        child: bookList(count: 1.5),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: bookDetails(),
-                      )
-                    ],
-                  ));
-  }
-
-  Widget sideBar() {
-    return const Center(child: Text('SideBar'));
-  }
-
-  Widget bookDetails() {
-    return const Detail(
-      isPage: false,
+      appBar: AppBar(
+        title: const Text('Desktop'),
+      ),
+      drawer: isDesktop ? null : const DrawerWidget(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          Book? newBook = await pickFile();
+          if (newBook != null) {
+            // ignore: use_build_context_synchronously
+            _insertBook(newBook, context);
+          }
+        },
+        child: const Icon(Icons.add),
+      ),
+      body: ResponsiveWidget(
+        mobile: buildMobile(),
+        tablet: buildTablet(),
+        desktop: buildDesktop(),
+      ),
     );
   }
+
+  Widget buildMobile() => SafeArea(child: bookList());
+  Widget buildTablet() => Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: bookList(count: 1.5),
+          ),
+          const VerticalDivider(
+            thickness: 4,
+            color: Colors.transparent,
+          ),
+          const Expanded(
+            flex: 1,
+            child: Details(),
+          )
+        ],
+      );
+  Widget buildDesktop() => Row(
+        children: [
+          const Expanded(
+            flex: 1,
+            child: DrawerWidget(),
+          ),
+          Expanded(
+            flex: 5,
+            child: bookList(count: 1.5),
+          ),
+          const Expanded(
+            flex: 2,
+            child: Details(),
+          )
+        ],
+      );
 
   Widget bookList({double count = 1.0}) {
     return GridList(count: count);
