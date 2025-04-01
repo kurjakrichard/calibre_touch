@@ -7,16 +7,13 @@ import 'routes.dart';
 final navigationKey = GlobalKey<NavigatorState>();
 final routesProvider = Provider<GoRouter>(
   (ref) {
-    return GoRouter(
-        initialLocation: RouteLocation.home,
-        navigatorKey: navigationKey,
-        routes: <RouteBase>[
-          GoRoute(
-              path: '/',
-              builder: (BuildContext context, GoRouterState state) {
-                return const HomePage();
-              },
-              routes: appRoutes),
-        ]);
+    return GoRouter(navigatorKey: navigationKey, routes: <RouteBase>[
+      GoRoute(
+          path: '/',
+          builder: (BuildContext context, GoRouterState state) {
+            return const HomePage();
+          },
+          routes: appRoutes),
+    ]);
   },
 );

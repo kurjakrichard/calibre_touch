@@ -1,3 +1,4 @@
+import 'package:calibre_touch/utils/utils.dart';
 import 'package:flutter/material.dart';
 
 class DrawerWidget extends StatelessWidget {
@@ -6,6 +7,7 @@ class DrawerWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      backgroundColor: secondary,
       child: ListView(
         children: [
           SizedBox(
@@ -16,11 +18,17 @@ class DrawerWidget extends StatelessWidget {
                   children: [
                     Image.asset(
                       'images/flutibre-icon.png',
-                      height: 72,
+                      height: 64,
                     ),
-                    const Text(
-                      'Calibre Touch',
-                      style: TextStyle(fontSize: 18),
+                    const Expanded(
+                      child: Text(
+                        'Calibre Touch',
+                        style: TextStyle(
+                            color: buttoncolor,
+                            fontSize: 16,
+                            height: 2,
+                            overflow: TextOverflow.clip),
+                      ),
                     ),
                   ],
                 )),

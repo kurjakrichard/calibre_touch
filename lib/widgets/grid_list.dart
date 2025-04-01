@@ -24,7 +24,6 @@ class GridList extends ConsumerWidget {
           tag: book.id.toString(),
           child: Material(
             elevation: 15.0,
-            shadowColor: Colors.yellow.shade900,
             child: InkWell(
               onDoubleTap: () {
                 ref.read(selectedBookProvider.notifier).setSelectedBook(book);

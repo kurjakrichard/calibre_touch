@@ -4,7 +4,6 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:remove_diacritic/remove_diacritic.dart';
-import '../config/config.dart';
 import '../data/data_export.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
@@ -31,6 +30,8 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
   String? format;
   String? oldPath;
   String? oldFilename;
+  // ignore: non_constant_identifier_names
+  String? last_modified;
   Book? selectedBook;
   FileService fileService = FileService();
 
@@ -50,23 +51,21 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colorScheme;
-
     if (selectedBook != null) {
       _titleController.text = selectedBook!.title;
       _authorController.text = selectedBook!.author;
       _descriptionController.text = selectedBook!.description;
       id = selectedBook!.id;
       format = selectedBook!.format;
+      last_modified = selectedBook!.last_modified;
       oldPath = selectedBook!.path;
       oldFilename = selectedBook!.filename;
     }
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: colors.primary,
-        title: const DisplayWhiteText(
-          text: 'Update book',
+        title: const Text(
+          'Update book',
         ),
       ),
       body: SafeArea(
@@ -74,7 +73,7 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(20),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CommonTextField(
                 hintText: 'Title',
@@ -97,12 +96,15 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
                 controller: _descriptionController,
               ),
               const Gap(30),
-              ElevatedButton(
-                onPressed: _updateBook,
-                child: const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: DisplayWhiteText(
-                    text: 'Save',
+              SizedBox(
+                width: 120,
+                child: ElevatedButton(
+                  onPressed: _updateBook,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text(
+                      'Save',
+                    ),
                   ),
                 ),
               ),
@@ -137,7 +139,8 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
         // ignore: use_build_context_synchronously
         AppAlerts.displaySnackbar(context, 'Update book successfully');
         // ignore: use_build_context_synchronously
-        context.go(RouteLocation.home);
+        Navigator.popUntil(context, ModalRoute.withName('/'));
+        //context.go(RouteLocation.home);
       });
       await fileService.copyFile(
           oldpath:

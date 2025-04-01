@@ -14,11 +14,11 @@ class AppAlerts {
   static displaySnackbar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        backgroundColor: buttoncolor,
         content: Text(
+          style: const TextStyle(color: Colors.white),
           message,
-          style: context.textTheme.bodyMedium,
         ),
-        backgroundColor: context.colorScheme.onSecondary,
       ),
     );
   }
@@ -29,7 +29,10 @@ class AppAlerts {
     required Book book,
   }) async {
     Widget cancelButton = TextButton(
-      child: const Text('NO'),
+      child: const Text(
+        'NO',
+        style: TextStyle(color: buttoncolor),
+      ),
       onPressed: () => context.pop(),
     );
     Widget deleteButton = TextButton(
@@ -53,11 +56,12 @@ class AppAlerts {
         await fileService
             .deleteBook('/home/sire/Dokumentumok/ebooks/${book.path}');
       },
-      child: const Text('YES'),
+      child: const Text('YES', style: TextStyle(color: buttoncolor)),
     );
 
     AlertDialog alert = AlertDialog(
-      title: const Text('Are you sure you want to delete this book?'),
+      title: const Text('Are you sure you want to delete this book?',
+          style: TextStyle(color: buttoncolor)),
       actions: [
         deleteButton,
         cancelButton,

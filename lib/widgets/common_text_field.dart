@@ -27,7 +27,7 @@ class CommonTextField extends StatelessWidget {
       children: [
         Text(
           title,
-          style: context.textTheme.titleLarge,
+          style: const TextStyle(color: mainFontColor),
         ),
         const Gap(10),
         TextField(

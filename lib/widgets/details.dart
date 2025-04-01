@@ -83,7 +83,6 @@ class Details extends ConsumerWidget {
             size: 16, isBold: true, padding: const EdgeInsets.only(top: 16.0)),
         text(
           'by ${selectedBook.author}',
-          color: Colors.black54,
           size: 12,
           padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
         ),
@@ -94,18 +93,11 @@ class Details extends ConsumerWidget {
         ),
         RatingBar(rating: selectedBook.rating),
         const SizedBox(height: 32.0),
-        Material(
-          borderRadius: BorderRadius.circular(20.0),
-          shadowColor: Colors.blue.shade200,
-          elevation: 5.0,
-          child: MaterialButton(
-            onPressed: () {
-              context.push(RouteLocation.updateBook);
-            },
-            minWidth: 160.0,
-            color: Colors.blue,
-            child: text('Edit book', color: Colors.white, size: 13),
-          ),
+        ElevatedButton(
+          onPressed: () {
+            context.push(RouteLocation.updateBook);
+          },
+          child: const Text('Edit book'),
         )
       ],
     );
@@ -129,15 +121,14 @@ class Details extends ConsumerWidget {
             ),
           ),
         ),
-        text('${selectedBook.pages} pages', color: Colors.black38, size: 12)
+        text('${selectedBook.pages} pages', size: 12)
       ],
     );
   }
 
   ///create text widget
   Padding text(String data,
-          {Color color = Colors.black87,
-          num size = 14,
+          {num size = 14,
           EdgeInsetsGeometry padding = EdgeInsets.zero,
           bool isBold = false}) =>
       Padding(
@@ -145,7 +136,7 @@ class Details extends ConsumerWidget {
         child: Text(
           data,
           style: TextStyle(
-              color: color,
+              color: mainFontColor,
               fontSize: size.toDouble(),
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
         ),
