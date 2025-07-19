@@ -60,4 +60,15 @@ class BookNotifier extends StateNotifier<BookState> {
     }
     return book;
   }
+
+  Future<String?> getTitlesByTitle(String title) async {
+    try {
+      final books = await _repository.getAllBooks();
+      state = state.copyWith(books: books);
+      return await _repository.getBookAuthorsByTitle(title);
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+    return null;
+  }
 }

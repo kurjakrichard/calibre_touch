@@ -6,4 +6,5 @@ abstract class BookRepository {
   Future<void> deleteBook(Book book);
   Future<List<Book>> getAllBooks();
   Future<Book?> getBook(int bookId);
+  Future<String?> getBookAuthorsByTitle(String title);
 }

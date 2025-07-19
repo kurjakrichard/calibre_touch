@@ -45,6 +45,15 @@ class BookRepositoryImpl implements BookRepository {
   }
 
   @override
+  Future<String?> getBookAuthorsByTitle(String title) {
+    try {
+      return _datasource.getBookAuthorsByTitle(title);
+    } catch (e) {
+      throw '$e';
+    }
+  }
+
+  @override
   Future<void> updateBook(Book book) async {
     try {
       await _datasource.updateBook(book);

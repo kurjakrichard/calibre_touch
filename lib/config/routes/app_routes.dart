@@ -18,4 +18,9 @@ final List<GoRoute> appRoutes = [
     parentNavigatorKey: navigationKey,
     builder: UpdateBook.builder,
   ),
+  GoRoute(
+    path: RouteLocation.updateBook2,
+    parentNavigatorKey: navigationKey,
+    builder: UpdateBook2.builder,
+  ),
 ];

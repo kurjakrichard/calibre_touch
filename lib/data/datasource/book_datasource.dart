@@ -96,6 +96,25 @@ class BookDatasource {
     }
   }
 
+  Future<String?> getBookAuthorsByTitle(String title) async {
+    final db = await database;
+    final List<Map<String, dynamic>> map = await db.query(
+      dbTable,
+      where: 'title = ?',
+      whereArgs: [title],
+    );
+    List<String> bookAuthors = [];
+
+    if (map.isNotEmpty) {
+      for (var item in map) {
+        Book bookListItem = Book.fromJson(item);
+        bookAuthors.add(bookListItem.author);
+      }
+      return bookAuthors.toString();
+    }
+    return null;
+  }
+
   Future<List<Book>> getAllBooks() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(

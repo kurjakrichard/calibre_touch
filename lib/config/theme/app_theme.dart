@@ -15,7 +15,7 @@ ThemeData lightTheme = ThemeData(
   ),
   scaffoldBackgroundColor: primary,
   fontFamily: 'Roboto',
-  dialogTheme: const DialogTheme(
+  dialogTheme: const DialogThemeData(
     backgroundColor: Colors.white,
     contentTextStyle: TextStyle(color: Colors.black),
   ),

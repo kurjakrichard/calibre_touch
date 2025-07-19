@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:open_filex/open_filex.dart';
 
 class FileService {
@@ -17,12 +18,16 @@ class FileService {
   }
 
   Future<void> deleteBook(String oldPath) async {
-    Directory dir = Directory(oldPath);
-    Directory parentDir = dir.parent;
-    await dir.delete(recursive: true);
-    bool isEmpty = await Directory(parentDir.path).list().isEmpty;
-    if (isEmpty) {
-      parentDir.delete(recursive: true);
+    try {
+      Directory dir = Directory(oldPath);
+      Directory parentDir = dir.parent;
+      await dir.delete(recursive: true);
+      bool isEmpty = await Directory(parentDir.path).list().isEmpty;
+      if (isEmpty) {
+        parentDir.delete(recursive: true);
+      }
+    } catch (e) {
+      debugPrint('Nincs ilyen fájl!');
     }
   }
 }
