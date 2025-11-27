@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:calibre_touch/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,7 +13,11 @@ final routesProvider = Provider<GoRouter>(
       GoRoute(
           path: '/',
           builder: (BuildContext context, GoRouterState state) {
-            return const HomePage();
+            return ref.watch(sharedUtilityProvider).getPath() == ''
+                ? const FirstRun()
+                : Platform.isWindows || Platform.isLinux
+                    ? const SplashPage()
+                    : const HomePage();
           },
           routes: appRoutes),
     ]);

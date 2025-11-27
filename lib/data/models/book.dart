@@ -1,6 +1,5 @@
 // ignore_for_file: non_constant_identifier_names
 import 'package:equatable/equatable.dart';
-
 import '../../utils/utils.dart';
 
 class Book extends Equatable {

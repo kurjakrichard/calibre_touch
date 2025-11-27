@@ -37,6 +37,7 @@ class _HomeState extends ConsumerState<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Calibre Touch'),
       ),
       drawer: isDesktop ? null : const DrawerWidget(),
@@ -142,10 +143,10 @@ class _HomeState extends ConsumerState<HomePage> {
                 return SimpleDialog(
                   //title: const Text("Dialog Title"),
                   children: [
-                    Center(
+                    const Center(
                         child: Text(
                             'Már van ilyen könyv című könyv a könyvtárban!')),
-                    Center(child: Text('Biztos hozzáadod?')),
+                    const Center(child: Text('Biztos hozzáadod?')),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [

@@ -14,6 +14,16 @@ final List<GoRoute> appRoutes = [
     builder: BookDetails.builder,
   ),
   GoRoute(
+    path: RouteLocation.firstRun,
+    parentNavigatorKey: navigationKey,
+    builder: SplashPage.builder,
+  ),
+  GoRoute(
+    path: RouteLocation.splash,
+    parentNavigatorKey: navigationKey,
+    builder: SplashPage.builder,
+  ),
+  GoRoute(
     path: RouteLocation.updateBook,
     parentNavigatorKey: navigationKey,
     builder: UpdateBook.builder,
