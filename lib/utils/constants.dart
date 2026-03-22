@@ -1,0 +1,4 @@
+enum PageSelector{
+  text,
+  image,
+}
