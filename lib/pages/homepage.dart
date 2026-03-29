@@ -1,165 +1,213 @@
-import 'package:calibre_touch/utils/constants.dart';
+import 'package:file_picker/file_picker.dart';
+// ignore: depend_on_referenced_packages
+import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:remove_diacritic/remove_diacritic.dart';
+import '../config/config.dart';
+import '../data/data_export.dart';
+import '../providers/providers.dart';
+import '../utils/utils.dart';
 import '../widgets/widgets.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.title});
-
-  final String title;
+class HomePage extends ConsumerStatefulWidget {
+  static HomePage builder(
+    BuildContext context,
+    GoRouterState state,
+  ) =>
+      const HomePage();
+  const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomeState();
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
-  PageSelector currentPage = PageSelector.text;
-  late TabController tabController;
-  int userCount = 3;
-
-  @override
-  void initState() {
-    tabController = TabController(length: 2, vsync: this);
-    super.initState();
-  }
+class _HomeState extends ConsumerState<HomePage> {
+  Book? selectedBook;
+  PlatformFile? _pickedfile;
+  // ignore: unused_field
+  bool _isLoading = false;
+  FileService fileService = FileService();
+  var allowedExtensions = ['pdf', 'odt', 'epub', 'mobi'];
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = ResponsiveWidget.isDesktop(context);
+
     return Scaffold(
-      backgroundColor: Color.fromRGBO(176, 179, 191, 1),
       appBar: AppBar(
-        backgroundColor: Color.fromRGBO(199, 204, 219, 1),
-
-        title: Text(widget.title, style: const TextStyle(color: Colors.black)),
-        bottom: TabBar(
-          controller: tabController,
-          onTap: (index) => setState(
-            () {
-              currentPage = index == 0
-                ? PageSelector.text
-                : PageSelector.image;
-                tabController.index = index;
-            },
-          ),
-          tabs: [
-            Tab(
-              child: Text('Lista', style: TextStyle(color: Colors.black)),
-            ),
-            Tab(
-              child: Text('Kép', style: TextStyle(color: Colors.black)),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.home),
-            onPressed: () {
-              setState(() {
-                currentPage = PageSelector.text;
-                tabController.index = 0;
-              });
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.share),
-            onPressed: () {
-              setState(() {
-                currentPage = PageSelector.image;
-                tabController.index = 1;
-              });
-            },
-          ),
-          PopupMenuButton(
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                child: Text('Szöveg'),
-                onTap: () {
-                  setState(() {
-                    currentPage = PageSelector.text;
-                  });
-                },
-              ),
-              PopupMenuItem(
-                child: Text('Kép'),
-                onTap: () {
-                  setState(() {
-                    currentPage = PageSelector.image;
-                  });
-                },
-              ),
-            ],
-          ),
-        ],
+        automaticallyImplyLeading: false,
+        title: const Text('Calibre Touch'),
       ),
-      drawer: Drawer(
-        backgroundColor: Color.fromRGBO(199, 204, 219, 1),
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Color.fromRGBO(199, 204, 219, 1),
-              ),
-              child: FlutterLogo(textColor: Colors.white, size: 50),
-            ),
-            ListTile(
-              title: const Text('Szöveg'),
-              onTap: () {
-                setState(() {
-                  currentPage = PageSelector.text;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              title: const Text('Kép'),
-              onTap: () {
-                setState(() {
-                  currentPage = PageSelector.image;
-                });
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-
+      drawer: isDesktop ? null : const DrawerWidget(),
       floatingActionButton: FloatingActionButton(
-        onPressed: incrementCounter,
-        tooltip: 'Increment',
+        onPressed: () async {
+          Book? newBook = await pickFile();
+          if (newBook != null) {
+            // ignore: use_build_context_synchronously
+            _insertBook(newBook, context);
+          }
+        },
         child: const Icon(Icons.add),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-          items: [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Szöveg'),
-            BottomNavigationBarItem(icon: Icon(Icons.share), label: 'Kép'),
-          ],
-          currentIndex: currentPage.index,
-          onTap: (index) {
-            setState(() {
-              currentPage = PageSelector.values[index];
-              tabController.index = index;
-            });
-          },
-        ),
-      
-    
-      body: currentPage == PageSelector.text
-          ? listViewPage()
-          : Image.network('https://randomuser.me/api/portraits/women/1.jpg'),
+      body: ResponsiveWidget(
+        mobile: buildMobile(),
+        tablet: buildTablet(),
+        desktop: buildDesktop(),
+      ),
     );
   }
 
-  Widget listViewPage() => ListView(
-    children: <Widget>[
-      for (var i = 0; i < userCount; i++)
-        UserItem(
-          name: 'Mr. Luca Lewis',
-          email: 'luca.lewis@me.com',
-          imageurl: 'https://randomuser.me/api/portraits/women/$i.jpg',
-        ),
-    ],
-  );
+  Widget buildMobile() => SafeArea(child: bookList());
+  Widget buildTablet() => Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: bookList(count: 1.5),
+          ),
+          const VerticalDivider(
+            thickness: 4,
+            color: Colors.transparent,
+          ),
+          const Expanded(
+            flex: 1,
+            child: Details(),
+          )
+        ],
+      );
+  Widget buildDesktop() => Row(
+        children: [
+          const Expanded(
+            flex: 1,
+            child: DrawerWidget(),
+          ),
+          Expanded(
+            flex: 5,
+            child: bookList(count: 1.5),
+          ),
+          const Expanded(
+            flex: 2,
+            child: Details(),
+          )
+        ],
+      );
 
-  void incrementCounter() => setState(() => userCount++);
+  Widget bookList({double count = 1.0}) {
+    return GridList(count: count);
+  }
+
+  void _insertBook(Book book, BuildContext context) async {
+    await ref.read(booksProvider.notifier).addBook(book).then((value) async {
+      // ignore: use_build_context_synchronously
+      AppAlerts.displaySnackbar(context, 'Add book successfully');
+      Book? selectedBook =
+          await ref.read(booksProvider.notifier).getBook(value!);
+      ref.read(selectedBookProvider.notifier).setSelectedBook(selectedBook!);
+      // ignore: use_build_context_synchronously
+      context.go(RouteLocation.home);
+    });
+  }
+
+  Future<Book?> pickFile() async {
+    Book? newBook;
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowMultiple: false,
+          allowedExtensions: allowedExtensions);
+
+      if (result != null) {
+        _pickedfile = result.files.first;
+        // ignore: avoid_print
+        print('Name: ${_pickedfile!.name}');
+        // ignore: avoid_print
+        print('Bytes: ${_pickedfile!.bytes}');
+        // ignore: avoid_print
+        print('Size: ${_pickedfile!.size}');
+        // ignore: avoid_print
+        print('Extension: ${_pickedfile!.extension}');
+        // ignore: avoid_print
+        print('Path: ${_pickedfile!.path}');
+        String title = p.basenameWithoutExtension(_pickedfile!.name);
+        String? authorsByTitle =
+            await ref.read(booksProvider.notifier).getTitlesByTitle(title);
+        if (authorsByTitle != null) {
+          showDialog(
+              context: context,
+              builder: (_) {
+                return SimpleDialog(
+                  //title: const Text("Dialog Title"),
+                  children: [
+                    const Center(
+                        child: Text(
+                            'Már van ilyen könyv című könyv a könyvtárban!')),
+                    const Center(child: Text('Biztos hozzáadod?')),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SimpleDialogOption(
+                          child: TextButton(
+                              onPressed: () {},
+                              child: const Text('Igen',
+                                  style: TextStyle(fontSize: 16),
+                                  textAlign: TextAlign.start)),
+                        ),
+                        SimpleDialogOption(
+                          child: TextButton(
+                              onPressed: () {},
+                              child: const Text('Nem',
+                                  style: TextStyle(fontSize: 16),
+                                  textAlign: TextAlign.start)),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              });
+        }
+        String format = _pickedfile!.extension.toString();
+        String author = 'Unknown author';
+        String filename =
+            '${removeDiacritics(author)} - ${removeDiacritics(title)}';
+        String path = '${removeDiacritics(author)}/${removeDiacritics(title)}';
+        newBook = Book(
+          author: author,
+          title: title,
+          description: '',
+          image: 'res/corel.jpg',
+          last_modified: '',
+          path: path,
+          filename: filename,
+          format: format,
+          pages: 0,
+          price: '',
+          rating: 0,
+        );
+
+        await fileService.copyFile(
+            oldpath: _pickedfile!.path!,
+            newpath:
+                '/home/sire/Dokumentumok/ebooks/${newBook.path}/${newBook.filename}.${newBook.format}');
+        //await fileService.addFile(_pickedfile);
+        //fileService.openFile(_pickedfile!.path!);
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+        return null;
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+    return newBook;
+  }
 }

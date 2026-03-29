@@ -1,18 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import '../config/config.dart';
 
-import '../pages/pages.dart';
-
-class CalibreTouch extends StatelessWidget {
+class CalibreTouch extends ConsumerStatefulWidget {
   const CalibreTouch({super.key});
 
-  // This widget is the root of your application.
+  @override
+  ConsumerState<CalibreTouch> createState() => _CalibreTouchState();
+}
+
+class _CalibreTouchState extends ConsumerState<CalibreTouch> {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    final route = ref.watch(routesProvider);
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'Calibre Touch',
-      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.deepPurple)),
-      home: const HomePage(title: 'Calibre Touch'),
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: ThemeMode.light,
+      routerConfig: route,
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    initialization();
+  }
+
+  void initialization() async {
+    // This is where you can initialize the resources needed by your app while
+    // the splash screen is displayed.  Remove the following example because
+    // delaying the user experience is a bad design practice!
+    // ignore_for_file: avoid_print
+
+    await Future.delayed(const Duration(seconds: 1));
+    FlutterNativeSplash.remove();
   }
 }
