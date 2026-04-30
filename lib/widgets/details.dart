@@ -95,7 +95,7 @@ class Details extends ConsumerWidget {
         const SizedBox(height: 32.0),
         ElevatedButton(
           onPressed: () {
-            context.push(RouteLocation.updateBook);
+            context.push(RouteLocation.updateBook.name);
           },
           child: const Text('Edit book'),
         )

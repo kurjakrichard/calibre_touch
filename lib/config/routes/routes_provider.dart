@@ -4,22 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../pages/pages.dart';
+import '../../utils/utils.dart';
 import 'routes.dart';
 
 final navigationKey = GlobalKey<NavigatorState>();
 final routesProvider = Provider<GoRouter>(
   (ref) {
-    return GoRouter(navigatorKey: navigationKey, routes: <RouteBase>[
-      GoRoute(
-          path: '/',
-          builder: (BuildContext context, GoRouterState state) {
-            return ref.watch(sharedUtilityProvider).getPath() != ''
-                ? const FirstRun()
-                : Platform.isWindows || Platform.isLinux
-                    ? const SplashPage()
-                    : const HomePage();
-          },
-          routes: appRoutes),
-    ]);
+    return GoRouter(
+        navigatorKey: navigationKey,
+        initialLocation: RouteLocation.home.name,
+        errorBuilder: (context, state) =>  ErrorPage(error: state.error),
+        routes: <RouteBase>[
+          GoRoute(
+              path: RouteLocation.home.name,
+              builder: (BuildContext context, GoRouterState state) {
+                return ref.watch(sharedUtilityProvider).getPath() != ''
+                    ? const FirstRun()
+                    : Platform.isWindows || Platform.isLinux
+                        ? const SplashPage()
+                        :  HomePage.builder(context, state);
+              },
+              routes: appRoutes),
+        ]);
   },
 );

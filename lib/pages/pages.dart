@@ -1,4 +1,5 @@
 export 'book_details.dart';
+export 'error_page.dart';
 export 'first_run.dart';
 export 'homepage.dart';
 export 'splashpage.dart';

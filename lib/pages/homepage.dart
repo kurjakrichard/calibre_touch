@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:remove_diacritic/remove_diacritic.dart';
-import '../config/config.dart';
 import '../data/data_export.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
@@ -105,7 +104,7 @@ class _HomeState extends ConsumerState<HomePage> {
           await ref.read(booksProvider.notifier).getBook(value!);
       ref.read(selectedBookProvider.notifier).setSelectedBook(selectedBook!);
       // ignore: use_build_context_synchronously
-      context.go(RouteLocation.home);
+      context.go(RouteLocation.home.name);
     });
   }
 
