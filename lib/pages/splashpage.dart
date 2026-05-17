@@ -49,7 +49,7 @@ class SplashPageState extends State<SplashPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Image.asset(
-              'assets/logo.png',
+              'assets/1.png',
               height: 400.0,
               width: 400.0,
             ),
