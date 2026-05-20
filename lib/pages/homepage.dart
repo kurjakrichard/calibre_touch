@@ -35,11 +35,12 @@ class _HomeState extends ConsumerState<HomePage> {
     final isDesktop = ResponsiveWidget.isDesktop(context);
 
     return Scaffold(
+      
       appBar: AppBar(
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: !isDesktop,
         title: const Text('Calibre Touch'),
       ),
-      drawer: isDesktop ? null : const DrawerWidget(),
+      drawer: const DrawerWidget(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           Book? newBook = await pickFile();

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import 'common_text_field.dart';
@@ -18,7 +17,7 @@ class SelectDateTime extends ConsumerWidget {
       readOnly: true,
       suffixIcon: IconButton(
         onPressed: () => Helpers.selectDate(context, ref),
-        icon: const FaIcon(FontAwesomeIcons.calendar),
+        icon:   const Icon(Icons.calendar_month_outlined),
       ),
     );
   }
