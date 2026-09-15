@@ -35,32 +35,22 @@ enum DbTypekeys {
 }
 
 enum Routes {
-  home,
-  bookDetails,
-  desktopDetails,
-  firstRun,
-  splash,
-  updateBook,
-  updateBook2;
-}
+  home(name: '/', path: '/home'),
+  bookDetails(name: 'bookDetails', path: '/home/bookDetails'),
+  desktopDetails(name: 'desktopDetails', path: '/home/desktopDetails'),
+  firstRun(name: 'firstRun', path: '/firstRun'),
+  splash(name: 'splash', path: '/splashPage'),
+  updateBook(name: 'updateBook', path: '/home/updateBook'),
+  updateBook2(name: 'updateBook2', path: '/updateBook2');
 
-
-enum RouteLocation {
-  home(name: '/'),
-  bookDetails(name: '/bookDetails'),
-  desktopDetails(name: '/desktopDetails'),
-  firstRun(name: '/firstRun'),   
-  splash(name: '/splashPage'),
-  updateBook(name: '/updateBook'),
-  updateBook2(name: '/updateBook2');
-
-  const RouteLocation({
+  const Routes({
     required this.name,
+    required this.path,
   });
 
   final String name;
+  final String path;
 }
-
 
 // ignore: camel_case_types
 enum Formats {

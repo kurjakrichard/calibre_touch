@@ -12,16 +12,16 @@ final routesProvider = Provider<GoRouter>(
   (ref) {
     return GoRouter(
         navigatorKey: navigationKey,
-        initialLocation: RouteLocation.home.name,
+        initialLocation: Routes.home.path,
         errorBuilder: (context, state) =>  ErrorPage(error: state.error),
-        routes: <RouteBase>[
+            routes: <RouteBase>[
           GoRoute(
-              path: RouteLocation.home.name,
+              path: Routes.home.path,
               builder: (BuildContext context, GoRouterState state) {
-                return ref.watch(sharedUtilityProvider).getPath() != ''
+                return ref.watch(sharedUtilityProvider).getPath().isNotEmpty
                     ? const FirstRun()
                     : Platform.isWindows || Platform.isLinux
-                        ? const SplashPage()
+                        ?  SplashPage.builder(context, state)
                         :  HomePage.builder(context, state);
               },
               routes: appRoutes),

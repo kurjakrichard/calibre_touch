@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_filex/open_filex.dart';
-import '../config/config.dart';
 import '../data/data_export.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
@@ -48,7 +47,7 @@ class GridList extends ConsumerWidget {
                             child: TextButton(
                                 onPressed: () {
                                   Navigator.of(context).pop();
-                                  context.push(RouteLocation.updateBook.name);
+                                  context.push(Routes.updateBook.name);
                                 },
                                 child: const Text('Szerkesztés',
                                     style: TextStyle(fontSize: 16),
@@ -58,7 +57,7 @@ class GridList extends ConsumerWidget {
                             child: TextButton(
                                 onPressed: () {
                                   Navigator.of(context).pop();
-                                  context.push(RouteLocation.bookDetails.name);
+                                  context.push(Routes.bookDetails.name);
                                 },
                                 child: const Text('Részletek',
                                     style: TextStyle(fontSize: 16),
@@ -84,7 +83,8 @@ class GridList extends ConsumerWidget {
                 final isMobile = ResponsiveWidget.isMobile(context);
 
                 if (isMobile) {
-                  context.go(RouteLocation.bookDetails.name);
+                  
+                  context.push(Routes.bookDetails.path);
                 }
 
                 /*     String path = '/home/sire/vscode/flutibre/${book.image}';

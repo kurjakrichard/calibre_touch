@@ -105,7 +105,7 @@ class _HomeState extends ConsumerState<HomePage> {
           await ref.read(booksProvider.notifier).getBook(value!);
       ref.read(selectedBookProvider.notifier).setSelectedBook(selectedBook!);
       // ignore: use_build_context_synchronously
-      context.go(RouteLocation.home.name);
+      context.go(Routes.home.name);
     });
   }
 
@@ -116,19 +116,15 @@ class _HomeState extends ConsumerState<HomePage> {
         _isLoading = true;
       });
 
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      PlatformFile? result = await FilePicker.pickFile(
           type: FileType.custom,
-          allowMultiple: false,
           allowedExtensions: allowedExtensions);
 
-      if (result != null) {
-        _pickedfile = result.files.first;
-        // ignore: avoid_print
+      if (_pickedfile != null) {
+        _pickedfile = result;         // ignore: avoid_print
         print('Name: ${_pickedfile!.name}');
         // ignore: avoid_print
-        print('Bytes: ${_pickedfile!.bytes}');
-        // ignore: avoid_print
-        print('Size: ${_pickedfile!.size}');
+        print('Size: ${_pickedfile!.length}');
         // ignore: avoid_print
         print('Extension: ${_pickedfile!.extension}');
         // ignore: avoid_print

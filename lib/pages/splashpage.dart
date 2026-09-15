@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../utils/utils.dart';
 import 'pages.dart';
 
 class SplashPage extends StatefulWidget {
@@ -25,8 +26,10 @@ class SplashPageState extends State<SplashPage> {
     changeScreen();
   }
 
-  void changeScreen() {
-    Navigator.push(
+  void changeScreen() { 
+
+   // context.pushReplacement(Routes.home.name);
+    Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => const HomePage(),
@@ -53,9 +56,13 @@ class SplashPageState extends State<SplashPage> {
               height: 400.0,
               width: 400.0,
             ),
+            const Text(
+              'Welcome to Calibre Touch',
+              style: TextStyle(fontSize: 18, color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
     );
-  }
-}
+  }}
