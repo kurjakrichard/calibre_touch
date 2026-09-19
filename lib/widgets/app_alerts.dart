@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../data/models/models.dart';
 import '../providers/providers.dart';
-import 'utils.dart';
+import '../utils/utils.dart';
 
 @immutable
 class AppAlerts {

@@ -122,7 +122,7 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook2> {
     String? path;
     String? filename;
   
-      path = '${removeDiacritics(author!)}/${removeDiacritics(title!)}';
+      path = '${removeDiacritics(author)}/${removeDiacritics(title)}';
       filename = '${removeDiacritics(author)} - ${removeDiacritics(title)}';
       final book = ref.watch(selectedBookProvider)!.copyWith(
             title: title,

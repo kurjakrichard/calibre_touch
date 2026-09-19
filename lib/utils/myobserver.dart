@@ -1,15 +1,16 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final class MyObserver extends ProviderObserver {
 
   @override
   void didAddProvider(ProviderObserverContext context, Object? value) {
-    print('Provider ${context.provider} was initialized with $value');
+    debugPrint('Provider ${context.provider} was initialized with $value');
   }
 
   @override
   void didDisposeProvider(ProviderObserverContext context, ) {
-    print('Provider ${context.provider} was disposed');
+    debugPrint('Provider ${context.provider} was disposed');
   }
 
   @override
@@ -18,7 +19,7 @@ final class MyObserver extends ProviderObserver {
     Object? previousValue,
     Object? newValue,
   ) {
-    print('Provider ${context.provider} updated from $previousValue to $newValue');
+    debugPrint('Provider ${context.provider} updated from $previousValue to $newValue');
   }
 
   @override
@@ -27,6 +28,6 @@ final class MyObserver extends ProviderObserver {
     Object error,
     StackTrace stackTrace,
   ) {
-    print('Provider ${context.provider} provider threw $error at $stackTrace');
+    debugPrint('Provider ${context.provider} provider threw $error at $stackTrace');
   }
 }

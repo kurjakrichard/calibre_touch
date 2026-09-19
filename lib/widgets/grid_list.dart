@@ -47,7 +47,7 @@ class GridList extends ConsumerWidget {
                             child: TextButton(
                                 onPressed: () {
                                   Navigator.of(context).pop();
-                                  context.push(Routes.updateBook.name);
+                                  context.go(Routes.updateBook.path);
                                 },
                                 child: const Text('Szerkesztés',
                                     style: TextStyle(fontSize: 16),
@@ -57,7 +57,7 @@ class GridList extends ConsumerWidget {
                             child: TextButton(
                                 onPressed: () {
                                   Navigator.of(context).pop();
-                                  context.push(Routes.bookDetails.name);
+                                  context.pushNamed(Routes.bookDetails.name);
                                 },
                                 child: const Text('Részletek',
                                     style: TextStyle(fontSize: 16),
@@ -84,7 +84,7 @@ class GridList extends ConsumerWidget {
 
                 if (isMobile) {
                   
-                  context.push(Routes.bookDetails.path);
+                  context.pushNamed(Routes.bookDetails.name);
                 }
 
                 /*     String path = '/home/sire/vscode/flutibre/${book.image}';

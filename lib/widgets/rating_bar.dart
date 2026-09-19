@@ -18,7 +18,7 @@ class RatingBar extends StatelessWidget {
 
     if (index >= rating) {
       icName = Icons.star_border;
-      icColor = color.withOpacity(0.6);
+      icColor = color.withValues(alpha: 0.6);
     } else if (index > rating - 1 && index < rating) {
       icName = Icons.star_half;
     }

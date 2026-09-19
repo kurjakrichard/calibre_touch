@@ -38,7 +38,7 @@ class BookRepositoryImpl implements BookRepository {
   @override
   Future<Book?> getBook(int bookId) async {
     try {
-      return _datasource.getBook(bookId);
+      return await _datasource.getBook(bookId);
     } catch (e) {
       throw '$e';
     }
