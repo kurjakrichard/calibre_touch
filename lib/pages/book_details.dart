@@ -15,8 +15,9 @@ class BookDetails extends ConsumerWidget {
       const BookDetails();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref)  {
     Book? selectedBook = ref.watch(selectedBookProvider);
+    print('Selected book: ${selectedBook?.title}');
     return Scaffold(
       appBar: AppBar(title: Text(selectedBook!.title)),
       body: const Details(),

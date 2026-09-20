@@ -35,7 +35,6 @@ class _HomeState extends ConsumerState<HomePage> {
     final isDesktop = ResponsiveWidget.isDesktop(context);
 
     return Scaffold(
-      
       appBar: AppBar(
         automaticallyImplyLeading: !isDesktop,
         title: const Text('Calibre Touch'),
@@ -117,11 +116,10 @@ class _HomeState extends ConsumerState<HomePage> {
       });
 
       PlatformFile? result = await FilePicker.pickFile(
-          type: FileType.custom,
-          allowedExtensions: allowedExtensions);
+          type: FileType.custom, allowedExtensions: allowedExtensions);
 
       if (_pickedfile != null) {
-        _pickedfile = result;         // ignore: avoid_print
+        _pickedfile = result; // ignore: avoid_print
         print('Name: ${_pickedfile!.name}');
         // ignore: avoid_print
         print('Size: ${_pickedfile!.length}');

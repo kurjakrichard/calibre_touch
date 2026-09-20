@@ -47,7 +47,7 @@ class GridList extends ConsumerWidget {
                             child: TextButton(
                                 onPressed: () {
                                   Navigator.of(context).pop();
-                                  context.go(Routes.updateBook.path);
+                                  context.pushNamed(Routes.updateBook.name);
                                 },
                                 child: const Text('Szerkesztés',
                                     style: TextStyle(fontSize: 16),

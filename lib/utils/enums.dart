@@ -36,11 +36,11 @@ enum DbTypekeys {
 
 enum Routes {
   home(name: '/', path: '/home'),
-  bookDetails(name: 'bookDetails', path: '/bookDetails'),
+  bookDetails(name: 'bookDetails', path: 'bookDetails'),
   firstRun(name: 'firstRun', path: '/firstRun'),
   splash(name: 'splash', path: '/splashPage'),
-  updateBook(name: 'updateBook', path: 'home/updateBook'),
-  updateBook2(name: 'updateBook2', path: '/home/updateBook2');
+  updateBook(name: 'updateBook', path: 'updateBook'),
+  updateBook2(name: 'updateBook2', path: 'updateBook2');
 
   const Routes({
     required this.name,
