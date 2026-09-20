@@ -24,7 +24,6 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomeState extends ConsumerState<HomePage> {
   Book? selectedBook;
-  PlatformFile? _pickedfile;
   // ignore: unused_field
   bool _isLoading = false;
   FileService fileService = FileService();
@@ -96,112 +95,104 @@ class _HomeState extends ConsumerState<HomePage> {
     return GridList(count: count);
   }
 
-  void _insertBook(Book book, BuildContext context) async {
-    await ref.read(booksProvider.notifier).addBook(book).then((value) async {
-      // ignore: use_build_context_synchronously
+  Future<void> _insertBook(Book book, BuildContext context) async {
+    final id = await ref.read(booksProvider.notifier).addBook(book);
+    if (id == null) {
+      // addBook() swallows DB errors and returns null, so report it here.
+      if (context.mounted) {
+        AppAlerts.displaySnackbar(context, 'Could not save book to database');
+      }
+      return;
+    }
+    final saved = await ref.read(booksProvider.notifier).getBook(id);
+    if (saved != null) {
+      ref.read(selectedBookProvider.notifier).setSelectedBook(saved);
+    }
+    if (context.mounted) {
       AppAlerts.displaySnackbar(context, 'Add book successfully');
-      Book? selectedBook =
-          await ref.read(booksProvider.notifier).getBook(value!);
-      ref.read(selectedBookProvider.notifier).setSelectedBook(selectedBook!);
-      // ignore: use_build_context_synchronously
       context.go(Routes.home.path);
-    });
+    }
+  }
+
+  Future<bool> _confirmDuplicate() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        content: const Text(
+            'Már van ilyen című könyv a könyvtárban!\nBiztos hozzáadod?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Igen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Nem'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   Future<Book?> pickFile() async {
-    Book? newBook;
+    setState(() => _isLoading = true);
     try {
-      setState(() {
-        _isLoading = true;
-      });
+      final picked = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: allowedExtensions,
+      );
+      if (picked == null) return null; // user cancelled
 
-      PlatformFile? result = await FilePicker.pickFile(
-          type: FileType.custom, allowedExtensions: allowedExtensions);
+      final sourcePath = picked.path;
+      if (sourcePath == null) {
+        throw Exception('The picker returned no file path');
+      }
+      debugPrint('Picked: ${picked.name} -> $sourcePath');
 
-      if (_pickedfile != null) {
-        _pickedfile = result; // ignore: avoid_print
-        print('Name: ${_pickedfile!.name}');
-        // ignore: avoid_print
-        print('Size: ${_pickedfile!.length}');
-        // ignore: avoid_print
-        print('Extension: ${_pickedfile!.extension}');
-        // ignore: avoid_print
-        print('Path: ${_pickedfile!.path}');
-        String title = p.basenameWithoutExtension(_pickedfile!.name);
-        String? authorsByTitle =
-            await ref.read(booksProvider.notifier).getTitlesByTitle(title);
-        if (authorsByTitle != null) {
-          showDialog(
-              context: context,
-              builder: (_) {
-                return SimpleDialog(
-                  //title: const Text("Dialog Title"),
-                  children: [
-                    const Center(
-                        child: Text(
-                            'Már van ilyen könyv című könyv a könyvtárban!')),
-                    const Center(child: Text('Biztos hozzáadod?')),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SimpleDialogOption(
-                          child: TextButton(
-                              onPressed: () {},
-                              child: const Text('Igen',
-                                  style: TextStyle(fontSize: 16),
-                                  textAlign: TextAlign.start)),
-                        ),
-                        SimpleDialogOption(
-                          child: TextButton(
-                              onPressed: () {},
-                              child: const Text('Nem',
-                                  style: TextStyle(fontSize: 16),
-                                  textAlign: TextAlign.start)),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              });
-        }
-        String format = _pickedfile!.extension.toString();
-        String author = 'Unknown author';
-        String filename =
-            '${removeDiacritics(author)} - ${removeDiacritics(title)}';
-        String path = '${removeDiacritics(author)}/${removeDiacritics(title)}';
-        newBook = Book(
-          author: author,
-          title: title,
-          description: '',
-          image: 'res/corel.jpg',
-          last_modified: '',
-          path: path,
-          filename: filename,
-          format: format,
-          pages: 0,
-          price: '',
-          rating: 0,
-        );
+      final title = p.basenameWithoutExtension(picked.name);
+      final format = p.extension(picked.name).replaceFirst('.', '');
 
-        await fileService.copyFile(
-            oldpath: _pickedfile!.path!,
-            newpath:
-                '/home/sire/Dokumentumok/ebooks/${newBook.path}/${newBook.filename}.${newBook.format}');
-        //await fileService.addFile(_pickedfile);
-        //fileService.openFile(_pickedfile!.path!);
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-        return null;
+      final existing =
+          await ref.read(booksProvider.notifier).getTitlesByTitle(title);
+      if (existing != null) {
+        if (!mounted) return null;
+        final add = await _confirmDuplicate(); // now WAITS for the answer
+        if (!add) return null;
       }
 
-      setState(() {
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint(e.toString());
+      const author = 'Unknown author';
+      final filename = '${removeDiacritics(author)} - ${removeDiacritics(title)}';
+      final path = '${removeDiacritics(author)}/${removeDiacritics(title)}';
+
+      final book = Book(
+        author: author,
+        title: title,
+        description: '',
+        image: 'res/corel.jpg',
+        last_modified: '',
+        path: path,
+        filename: filename,
+        format: format,
+        pages: 0,
+        price: '',
+        rating: 0,
+      );
+
+      final target = await fileService.bookFilePath(
+          path: path, filename: filename, format: format);
+      debugPrint('Copying to: $target');
+      await fileService.copyFile(oldpath: sourcePath, newpath: target);
+
+      return book; // only returned if the file was really copied
+    } catch (e, st) {
+      debugPrint('Import failed: $e\n$st');
+      if (mounted) {
+        AppAlerts.displaySnackbar(context, 'Import failed: $e');
+      }
+      return null;
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    return newBook;
   }
 }

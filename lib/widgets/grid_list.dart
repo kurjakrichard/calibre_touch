@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:open_filex/open_filex.dart';
 import '../data/data_export.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
@@ -34,10 +33,14 @@ class GridList extends ConsumerWidget {
                         children: [
                           SimpleDialogOption(
                             child: TextButton(
-                                onPressed: () {
-                                  OpenFilex.open(
-                                      '/home/sire/Dokumentumok/ebooks/${book.path}/${book.filename}.${book.format}');
+                                onPressed: () async {
                                   Navigator.of(context).pop();
+                                  final fs = FileService();
+                                  fs.openFile(await fs.bookFilePath(
+                                    path: book.path,
+                                    filename: book.filename,
+                                    format: book.format,
+                                  ));
                                 },
                                 child: const Text('Megnyitás',
                                     style: TextStyle(fontSize: 16),

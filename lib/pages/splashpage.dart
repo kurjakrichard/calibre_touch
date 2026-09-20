@@ -30,7 +30,7 @@ class SplashPageState extends State<SplashPage> {
 
    // context.pushReplacement(Routes.home.name);
  context.go(Routes.home.path);
-  }
+   }
 
   @override
   void initState() {

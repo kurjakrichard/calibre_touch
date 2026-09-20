@@ -37,6 +37,15 @@ class AppAlerts {
     );
     Widget deleteButton = TextButton(
       onPressed: () async {
+        // Files first; keep the DB entry if they can't be deleted.
+        final error = await fileService.deleteBookFolder(book.path);
+        if (error != null) {
+          // ignore: use_build_context_synchronously
+          displaySnackbar(context, 'Could not delete the book files: $error');
+          // ignore: use_build_context_synchronously
+          context.pop();
+          return;
+        }
         await ref
             .read<BookNotifier>(booksProvider.notifier)
             .deleteBook(book)
@@ -53,8 +62,6 @@ class AppAlerts {
             context.pop();
           },
         );
-        await fileService
-            .deleteBook('/home/sire/Dokumentumok/ebooks/${book.path}');
       },
       child: const Text('YES', style: TextStyle(color: buttoncolor)),
     );
