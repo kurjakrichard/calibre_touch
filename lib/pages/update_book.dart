@@ -139,8 +139,8 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
         // ignore: use_build_context_synchronously
         AppAlerts.displaySnackbar(context, 'Update book successfully');
         // ignore: use_build_context_synchronously
-        Navigator.popUntil(context, ModalRoute.withName('/'));
-        //context.go(RouteLocation.home);
+        //Navigator.popUntil(context, ModalRoute.withName('/'));
+        context.goNamed(Routes.home.name);
       });
       await fileService.copyFile(
           oldpath:
