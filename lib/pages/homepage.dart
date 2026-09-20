@@ -104,7 +104,7 @@ class _HomeState extends ConsumerState<HomePage> {
           await ref.read(booksProvider.notifier).getBook(value!);
       ref.read(selectedBookProvider.notifier).setSelectedBook(selectedBook!);
       // ignore: use_build_context_synchronously
-      context.go(Routes.home.name);
+      context.go(Routes.home.path);
     });
   }
 

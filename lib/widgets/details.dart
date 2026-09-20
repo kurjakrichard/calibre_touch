@@ -93,7 +93,7 @@ class Details extends ConsumerWidget {
         RatingBar(rating: selectedBook.rating),
         const SizedBox(height: 32.0),
         ElevatedButton(
-          onPressed: () {
+          onPressed: () {           
             context.pushNamed(Routes.updateBook.name);
           },
           child: const Text('Edit book'),

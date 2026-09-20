@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../utils/utils.dart';
 import 'pages.dart';
 
 class SplashPage extends StatefulWidget {
@@ -28,11 +29,7 @@ class SplashPageState extends State<SplashPage> {
   void changeScreen() { 
 
    // context.pushReplacement(Routes.home.name);
-    Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const HomePage(),
-        ));
+ context.go(Routes.home.path);
   }
 
   @override
