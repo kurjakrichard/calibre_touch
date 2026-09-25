@@ -1,5 +1,6 @@
 import 'package:calibre_touch/utils/utils.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class DrawerWidget extends StatelessWidget {
   const DrawerWidget({super.key});
@@ -32,6 +33,14 @@ class DrawerWidget extends StatelessWidget {
                     ),
                   ],
                 )),
+          ),
+          ListTile(
+            leading: const Icon(Icons.folder_outlined, color: buttoncolor),
+            title: const Text(
+              'Library location',
+              style: TextStyle(color: buttoncolor),
+            ),
+            onTap: () => context.pushNamed(Routes.settings.name),
           ),
         ],
       ),

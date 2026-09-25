@@ -35,11 +35,19 @@ class SharedUtility {
   }
 
   String getPath() {
-    return sharedPreferences.getString(shareLocaleKey) ?? '';
+    return sharedPreferences.getString(sharePathKey) ?? '';
   }
 
   void setPath({required String path}) {
-    sharedPreferences.setString(shareLocaleKey, path);
+    sharedPreferences.setString(sharePathKey, path);
+  }
+
+  bool isOnboardingComplete() {
+    return sharedPreferences.getBool(sharedOnboardingCompleteKey) ?? false;
+  }
+
+  void setOnboardingComplete({required bool complete}) {
+    sharedPreferences.setBool(sharedOnboardingCompleteKey, complete);
   }
 
   String getMode() {

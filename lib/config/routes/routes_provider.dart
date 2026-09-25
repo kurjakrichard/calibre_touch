@@ -17,7 +17,7 @@ final routesProvider = Provider<GoRouter>(
     // route too (that's what caused the "/home/home/..." duplication and
     // the random bounce back to Home).
     final needsFirstRun =
-        ref.read(sharedUtilityProvider).getPath().isNotEmpty;
+        !ref.read(sharedUtilityProvider).isOnboardingComplete();
     final isDesktop = Platform.isWindows || Platform.isLinux;
     final initialLocation = needsFirstRun
         ? Routes.firstRun.path

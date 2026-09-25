@@ -4,6 +4,7 @@ const String sharedDarkModeKey = 'darkTheme';
 const String shareLocaleKey = 'locale';
 const String shareModeKey = 'mode';
 const String sharePathKey = 'path';
+const String sharedOnboardingCompleteKey = 'onboardingComplete';
 const double maxWidth = 900;
 const String dbTable = 'books';
 const String dbName = 'metadata.db';

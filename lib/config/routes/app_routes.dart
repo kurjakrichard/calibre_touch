@@ -8,7 +8,13 @@ final List<GoRoute> appRoutes = [
     name: Routes.firstRun.name,
     path: Routes.firstRun.path,
     parentNavigatorKey: navigationKey,
-    builder: SplashPage.builder,
+    builder: OnboardingPage.builder,
+  ),
+  GoRoute(
+    name: Routes.settings.name,
+    path: Routes.settings.path,
+    parentNavigatorKey: navigationKey,
+    builder: SettingsPage.builder,
   ),
   GoRoute(
     name: Routes.splash.name,

@@ -5,10 +5,28 @@ import 'package:open_filex/open_filex.dart';
 // ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import '../main.dart';
+import 'constants.dart';
 
 class FileService {
   /// The ONE place that defines where book files live.
+  ///
+  /// If the user picked a custom library folder on the Settings page, that
+  /// path (stored under [sharePathKey]) is used. Otherwise this falls back
+  /// to the app's own documents directory.
   Future<String> libraryRoot() async {
+    final customPath = prefs.getString(sharePathKey);
+    if (customPath != null && customPath.isNotEmpty) {
+      return customPath;
+    }
+    final docs = await getApplicationDocumentsDirectory();
+    return p.join(docs.path, 'ebooks');
+  }
+
+  /// The default library location, ignoring any custom folder the user
+  /// picked on the Settings page. Handy for showing the user what "default"
+  /// means before they commit to it.
+  Future<String> defaultLibraryRoot() async {
     final docs = await getApplicationDocumentsDirectory();
     return p.join(docs.path, 'ebooks');
   }

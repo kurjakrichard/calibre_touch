@@ -38,6 +38,7 @@ enum Routes {
   home(name: '/', path: '/home'),
   bookDetails(name: 'bookDetails', path: 'bookDetails'),
   firstRun(name: 'firstRun', path: '/firstRun'),
+  settings(name: 'settings', path: '/settings'),
   splash(name: 'splash', path: '/splashPage'),
   updateBook(name: 'updateBook', path: 'updateBook'),
   updateBook2(name: 'updateBook2', path: 'updateBook2');

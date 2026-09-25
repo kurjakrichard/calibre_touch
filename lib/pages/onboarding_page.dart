@@ -1,23 +1,25 @@
-import 'package:calibre_touch/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import '../utils/utils.dart';
 
-class FirstRun extends StatefulWidget {
-  static FirstRun builder(
+class OnboardingPage extends StatefulWidget {
+  static OnboardingPage builder(
     BuildContext context,
     GoRouterState state,
   ) =>
-      const FirstRun();
-  const FirstRun({super.key});
+      const OnboardingPage();
+
+  const OnboardingPage({super.key});
 
   @override
-  FirstRunState createState() => FirstRunState();
+  OnboardingPageState createState() => OnboardingPageState();
 }
 
-class FirstRunState extends State<FirstRun> {
+class OnboardingPageState extends State<OnboardingPage> {
   int currentPage = 0;
   final _pageController = PageController(initialPage: 0);
+  static const int _lastPage = 2;
 
   @override
   void initState() {
@@ -35,6 +37,10 @@ class FirstRunState extends State<FirstRun> {
     super.dispose();
   }
 
+  void _finishOnboarding() {
+    context.goNamed(Routes.settings.name);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,7 +55,7 @@ class FirstRunState extends State<FirstRun> {
                 ? TextButton(
                     onPressed: () {
                       _pageController.previousPage(
-                          duration: const Duration(microseconds: 500),
+                          duration: const Duration(milliseconds: 500),
                           curve: Curves.easeInOut);
                     },
                     child: const Text(
@@ -71,17 +77,25 @@ class FirstRunState extends State<FirstRun> {
                     curve: Curves.easeInOut),
               ),
             ),
-            TextButton(
-              onPressed: () {
-                _pageController.nextPage(
-                    duration: const Duration(microseconds: 500),
-                    curve: Curves.easeInOut);
-              },
-              child: const Text(
-                'Next',
-                style: TextStyle(color: Colors.white),
-              ),
-            )
+            currentPage < _lastPage
+                ? TextButton(
+                    onPressed: () {
+                      _pageController.nextPage(
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeInOut);
+                    },
+                    child: const Text(
+                      'Next',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  )
+                : TextButton(
+                    onPressed: _finishOnboarding,
+                    child: const Text(
+                      'Get Started',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
           ],
         ),
       ),
@@ -162,8 +176,9 @@ class FirstRunState extends State<FirstRun> {
           padding: const EdgeInsets.symmetric(vertical: 20.0),
           child: const Center(
             child: Text(
-              'Welcome to Calibre Touch',
+              'Your books, always at hand',
               style: TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
             ),
           ),
         ),
@@ -172,7 +187,8 @@ class FirstRunState extends State<FirstRun> {
           child: Wrap(children: [
             Center(
               child: Text(
-                'Calibre touch can work as a standalone e-book library manager. This is not compatible Calibre.',
+                'Import ebooks in PDF, EPUB, MOBI and ODT format and browse your whole library from one clean bookshelf.',
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16),
               ),
             ),
@@ -200,26 +216,18 @@ class FirstRunState extends State<FirstRun> {
           padding: const EdgeInsets.symmetric(vertical: 20.0),
           child: const Center(
             child: Text(
-              'Welcome to Calibre Touch',
+              'One last step',
               style: TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
             ),
           ),
         ),
         Container(
-          margin: const EdgeInsets.only(top: 20.0),
-          padding: const EdgeInsets.symmetric(vertical: 20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 20.0),
           child: const Center(
             child: Text(
-              'Calibre library reader',
-              style: TextStyle(fontSize: 16),
-            ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 20.0),
-          child: const Center(
-            child: Text(
-              'for touchscreen devices',
+              'Choose where your library should live, or keep the default location. You can always change this later from Settings.',
+              textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16),
             ),
           ),
