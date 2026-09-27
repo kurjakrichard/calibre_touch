@@ -107,8 +107,7 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
         const SizedBox(height: 24),
         const Divider(),
         SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          activeColor: buttoncolor,
+          contentPadding: EdgeInsets.zero, 
           title: const Text('Dark theme'),
           subtitle: const Text('Switch between light and dark appearance'),
           value: isDark,
