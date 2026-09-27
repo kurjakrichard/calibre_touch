@@ -63,60 +63,55 @@ const int calibreSchemaVersion = 27;
 /// [Triggers] afterwards, computing `sort`/`uuid` itself in the
 /// meantime with [_titleSort]/[_newUuid] below.
 class BookDatasource {
-  static BookDatasource? _databaseHandler;
-  static Database? _database;
-
   /// The user's custom library path, as held by `pathProvider`. Never read
   /// from SharedPreferences directly here - `bookDatasourceProvider` is the
   /// only place that resolves it, from `pathProvider`, and hands it in.
+  ///
+  /// One instance = one library. When the folder changes, the provider
+  /// builds a NEW instance and calls [close] on the old one, so there is
+  /// deliberately no static/singleton state in this class.
   final String? _customPath;
 
-  BookDatasource._createInstance(this._customPath);
+  /// Memoized open: concurrent callers share the same open instead of
+  /// racing to open metadata.db twice.
+  Future<Database>? _dbFuture;
+  bool _closed = false;
 
-  Future<Database> get database async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      _database ??= await _initDbMobile();
-    } else {
-      _database ??= await _initDbDesktop();
+  BookDatasource({String? customPath}) : _customPath = customPath;
+
+  Future<Database> get database {
+    if (_closed) {
+      return Future.error(StateError('BookDatasource for "$_customPath" was closed'));
     }
-    return _database!;
+    return _dbFuture ??= _open();
   }
 
-  factory BookDatasource({String? customPath}) {
-    _databaseHandler ??= BookDatasource._createInstance(customPath);
-    return _databaseHandler!;
-  }
+  Future<Database> _open() async {
+    final libraryDir = await FileService().libraryRoot(customPath: _customPath);
+    // sqlite can't create metadata.db inside a folder that doesn't exist yet
+    // (e.g. the default <documents>/ebooks on first run).
+    await Directory(libraryDir).create(recursive: true);
+    final path = join(libraryDir, dbName);
 
-  Future<Database> _initDbMobile() async {
-    final dbPath = _customPath;
-    final path = join(dbPath!, dbName);
-    final database = await openDatabase(
-      path,
-      version: calibreSchemaVersion,
-      onUpgrade: _onUpgrade,
-      onCreate: _onCreate,
-    );
-    await database.execute('PRAGMA foreign_keys = ON');
-    return database;
-  }
-
-  Future<Database> _initDbDesktop() async {
-    final defaltPath = await FileService().defaultLibraryRoot();
-
-    final dbPath = (_customPath == null || _customPath.isEmpty)
-        ? defaltPath
-        : _customPath;
-    final path = join(dbPath, dbName);
-    sqfliteFfiInit();
-    final databaseFactory = databaseFactoryFfi;
-    final database = await databaseFactory.openDatabase(
-      path,
-      options: OpenDatabaseOptions(
+    final Database database;
+    if (Platform.isAndroid || Platform.isIOS) {
+      database = await openDatabase(
+        path,
         version: calibreSchemaVersion,
         onUpgrade: _onUpgrade,
         onCreate: _onCreate,
-      ),
-    );
+      );
+    } else {
+      sqfliteFfiInit();
+      database = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: calibreSchemaVersion,
+          onUpgrade: _onUpgrade,
+          onCreate: _onCreate,
+        ),
+      );
+    }
     await database.execute('PRAGMA foreign_keys = ON');
     return database;
   }
@@ -446,9 +441,21 @@ class BookDatasource {
     return db.delete('books', where: 'id = ?', whereArgs: [book.id]);
   }
 
-  Future close() async {
-    final db = await _databaseHandler!.database;
-    db.close();
+  /// Closes this library's database (called by the provider's onDispose
+  /// when the library folder changes). Safe to call more than once, and a
+  /// no-op if the database was never opened.
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    final pending = _dbFuture;
+    _dbFuture = null;
+    if (pending == null) return;
+    try {
+      final db = await pending;
+      await db.close();
+    } catch (_) {
+      // Open failed - nothing to close.
+    }
   }
 
   // This creates tables in our database - the full schema from

@@ -88,15 +88,9 @@ flutter:
   assets:
     - assets/splash.png
     - assets/logo.png
-    - images/flutibre-icon.png
-    - res/corel.jpg
-    - assets/1.png
-    - assets/2.png
-    - assets/3.png
-    - assets/4.png
-    - assets/5.png
-
-  #   - images/a_dot_ham.jpeg
+    - assets/flutibre-icon.png
+    - assets/corel.jpg
+  
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

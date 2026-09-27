@@ -18,7 +18,7 @@ class DrawerWidget extends StatelessWidget {
                 child: Row(
                   children: [
                     Image.asset(
-                      'images/flutibre-icon.png',
+                      'assets/flutibre-icon.png',
                       height: 64,
                     ),
                     const Expanded(

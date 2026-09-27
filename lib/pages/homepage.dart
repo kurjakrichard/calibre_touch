@@ -81,8 +81,15 @@ class _HomeState extends ConsumerState<HomePage> {
                   .textTheme
                   .titleMedium
                   ?.copyWith(color: Colors.white),
-              decoration: const InputDecoration(
-                icon: Icon(Icons.search, color: Colors.white),
+              decoration: InputDecoration(
+                // Tappable search button (same as pressing Enter).
+                prefixIcon: IconButton(
+                  tooltip: 'Search',
+                  icon: const Icon(Icons.search, color: Colors.white),
+                  onPressed: () => ref
+                      .read(booksProvider.notifier)
+                      .search(_searchController.text),
+                ),
                 hintText: 'Search book',
                 hintStyle: TextStyle(color: Colors.white70),
                 border: InputBorder.none,
@@ -224,7 +231,7 @@ class _HomeState extends ConsumerState<HomePage> {
         author: author,
         title: title,
         description: '',
-        image: 'res/corel.jpg',
+        image: 'assets/corel.jpg',
         last_modified: '',
         path: path,
         filename: filename,

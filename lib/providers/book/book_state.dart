@@ -9,13 +9,20 @@ class BookState extends Equatable {
   /// Current search text from the app bar ('' = no search).
   final String query;
 
+  /// Absolute folder the [books] were loaded from. Stored together with the
+  /// books so covers are never resolved against a different library than
+  /// the list they belong to (null until the first load finishes).
+  final String? libraryRoot;
+
   const BookState({
     required this.books,
     this.query = '',
+    this.libraryRoot,
   });
   const BookState.initial({
     this.books = const [],
     this.query = '',
+    this.libraryRoot,
   });
 
   /// The books to show: all of them, or only those matching [query]
@@ -39,10 +46,12 @@ class BookState extends Equatable {
   BookState copyWith({
     List<Book>? books,
     String? query,
+    String? libraryRoot,
   }) {
     return BookState(
       books: books ?? this.books,
       query: query ?? this.query,
+      libraryRoot: libraryRoot ?? this.libraryRoot,
     );
   }
 
@@ -54,5 +63,5 @@ class BookState extends Equatable {
   }
 
   @override
-  List<Object> get props => [books, query];
+  List<Object?> get props => [books, query, libraryRoot];
 }
