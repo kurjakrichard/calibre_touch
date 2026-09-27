@@ -1,13 +1,11 @@
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/data_export.dart';
 
-final selectedBookProvider =
-    StateNotifierProvider<SelectedBookNotifier, Book?>((ref) {
-  return SelectedBookNotifier();
-});
-
-class SelectedBookNotifier extends StateNotifier<Book?> {
-  SelectedBookNotifier() : super(null);
+class SelectedBookNotifier extends Notifier<Book?> {
+  @override
+  Book? build() {
+    return null;
+  }
 
   Future<void> setSelectedBook(Book book) async {
     state = book;
@@ -17,3 +15,7 @@ class SelectedBookNotifier extends StateNotifier<Book?> {
     state = null;
   }
 }
+
+final selectedBookProvider = NotifierProvider<SelectedBookNotifier, Book?>(
+  SelectedBookNotifier.new,
+);

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import '../providers/providers.dart';
 import '../utils/utils.dart';
+import '../widgets/widgets.dart';
 
-class OnboardingPage extends StatefulWidget {
+class OnboardingPage extends ConsumerStatefulWidget {
   static OnboardingPage builder(
     BuildContext context,
     GoRouterState state,
@@ -13,10 +16,10 @@ class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
   @override
-  OnboardingPageState createState() => OnboardingPageState();
+  ConsumerState<OnboardingPage> createState() => OnboardingPageState();
 }
 
-class OnboardingPageState extends State<OnboardingPage> {
+class OnboardingPageState extends ConsumerState<OnboardingPage> {
   int currentPage = 0;
   final _pageController = PageController(initialPage: 0);
   static const int _lastPage = 2;
@@ -38,7 +41,8 @@ class OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _finishOnboarding() {
-    context.goNamed(Routes.settings.name);
+    ref.read(sharedUtilityProvider).setOnboardingComplete(complete: true);
+    context.goNamed(Routes.home.name);
   }
 
   @override
@@ -158,43 +162,12 @@ class OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  /// Second onboarding page: the settings form (library folder + theme),
+  /// embedded directly so first-time setup doubles as the settings screen.
   Widget secondPage() {
-    return ListView(
-      children: [
-        Container(
-          color: const Color.fromRGBO(28, 47, 67, 1),
-          child: Center(
-            child: Image.asset(
-              'assets/logo.png',
-              fit: BoxFit.fitHeight,
-              height: 300,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.only(top: 40.0),
-          padding: const EdgeInsets.symmetric(vertical: 20.0),
-          child: const Center(
-            child: Text(
-              'Your books, always at hand',
-              style: TextStyle(fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.all(40.0),
-          child: Wrap(children: [
-            Center(
-              child: Text(
-                'Import ebooks in PDF, EPUB, MOBI and ODT format and browse your whole library from one clean bookshelf.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
-          ]),
-        ),
-      ],
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+      child: const SettingsForm(),
     );
   }
 
@@ -216,7 +189,7 @@ class OnboardingPageState extends State<OnboardingPage> {
           padding: const EdgeInsets.symmetric(vertical: 20.0),
           child: const Center(
             child: Text(
-              'One last step',
+              "You're all set!",
               style: TextStyle(fontSize: 18),
               textAlign: TextAlign.center,
             ),
@@ -226,7 +199,7 @@ class OnboardingPageState extends State<OnboardingPage> {
           padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 20.0),
           child: const Center(
             child: Text(
-              'Choose where your library should live, or keep the default location. You can always change this later from Settings.',
+              'Your library and appearance are ready to go. You can always revisit these from the menu.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16),
             ),

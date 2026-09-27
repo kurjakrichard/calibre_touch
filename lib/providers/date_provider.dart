@@ -1,5 +1,16 @@
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final dateProvider = StateProvider<DateTime>((ref) {
-  return DateTime.now();
-});
+class DateNotifier extends Notifier<DateTime> {
+  @override
+  DateTime build() {
+    return DateTime.now();
+  }
+
+  void setDate(DateTime newValue) {
+    state = newValue;
+  }
+}
+
+final dateProvider = NotifierProvider<DateNotifier, DateTime>(
+  DateNotifier.new,
+);

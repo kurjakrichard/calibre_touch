@@ -1,19 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'shared_preferences_provider.dart';
 
-class PathProvider extends StateNotifier<String> {
-  PathProvider({required this.ref}) : super('') {
-    state = ref.watch(sharedUtilityProvider).getPath();
-  }
-  Ref ref;
-
+class PathNotifier extends Notifier<String> {
   bool isMetadataDb = false;
 
+  @override
+  String build() {
+    return ref.watch(sharedUtilityProvider).getPath();
+  }
+
   void setPath(String newValue) {
-    ref.watch(sharedUtilityProvider).setPath(
+    ref.read(sharedUtilityProvider).setPath(
           path: newValue,
         );
-    state = ref.watch(sharedUtilityProvider).getPath();
+    state = ref.read(sharedUtilityProvider).getPath();
   }
 }
+
+final pathProvider = NotifierProvider<PathNotifier, String>(
+  PathNotifier.new,
+);

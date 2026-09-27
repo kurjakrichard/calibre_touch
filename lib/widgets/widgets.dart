@@ -5,4 +5,5 @@ export 'grid_list.dart';
 export 'rating_bar.dart';
 export 'responsive.dart';
 export 'select_date_time.dart';
+export 'settings_form.dart';
 export 'drawer_widget.dart';

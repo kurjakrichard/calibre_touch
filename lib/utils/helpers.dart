@@ -34,7 +34,7 @@ class Helpers {
     );
 
     if (pickedDate != null) {
-      ref.read(dateProvider.notifier).state = pickedDate;
+      ref.read(dateProvider.notifier).setDate(pickedDate);
     }
   }
 

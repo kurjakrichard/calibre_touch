@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import '../config/config.dart';
+import '../providers/providers.dart';
 
 class CalibreTouch extends ConsumerStatefulWidget {
   const CalibreTouch({super.key});
@@ -14,11 +15,12 @@ class _CalibreTouchState extends ConsumerState<CalibreTouch> {
   @override
   Widget build(BuildContext context) {
     final route = ref.watch(routesProvider);
+    final mode = ref.watch(modeProvider);
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       theme: lightTheme,
       darkTheme: darkTheme,
-      themeMode: ThemeMode.light,
+      themeMode: mode == 'dark' ? ThemeMode.dark : ThemeMode.light,
       routerConfig: route,
     );
   }

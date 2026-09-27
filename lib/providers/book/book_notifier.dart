@@ -1,13 +1,16 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/data_export.dart';
 import 'book_export.dart';
 
-class BookNotifier extends StateNotifier<BookState> {
-  final BookRepository _repository;
+class BookNotifier extends Notifier<BookState> {
+  late final BookRepository _repository;
 
-  BookNotifier(this._repository) : super(const BookState.initial()) {
+  @override
+  BookState build() {
+    _repository = ref.watch(bookRepositoryProvider);
     getBooks();
+    return const BookState.initial();
   }
 
   Future<int?> addBook(Book book) async {

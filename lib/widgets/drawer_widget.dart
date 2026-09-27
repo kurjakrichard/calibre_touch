@@ -35,9 +35,9 @@ class DrawerWidget extends StatelessWidget {
                 )),
           ),
           ListTile(
-            leading: const Icon(Icons.folder_outlined, color: buttoncolor),
+            leading: const Icon(Icons.settings_outlined, color: buttoncolor),
             title: const Text(
-              'Library location',
+              'Settings',
               style: TextStyle(color: buttoncolor),
             ),
             onTap: () => context.pushNamed(Routes.settings.name),
