@@ -38,7 +38,10 @@ class AppAlerts {
     Widget deleteButton = TextButton(
       onPressed: () async {
         // Files first; keep the DB entry if they can't be deleted.
-        final error = await fileService.deleteBookFolder(book.path);
+        final error = await fileService.deleteBookFolder(
+          book.path,
+          customPath: ref.read(pathProvider),
+        );
         if (error != null) {
           // ignore: use_build_context_synchronously
           displaySnackbar(context, 'Could not delete the book files: $error');

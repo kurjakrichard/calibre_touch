@@ -81,6 +81,14 @@ class Book extends Equatable {
     ];
   }
 
+  /// Short form for logs (e.g. the Riverpod observer). The description
+  /// (comments.text, often long HTML) is left out on purpose - only its
+  /// length is shown.
+  @override
+  String toString() => 'Book(id: $id, title: $title, author: $author, '
+      'path: $path, format: $format, pages: $pages, rating: $rating, '
+      'description: ${description.length} chars)';
+
   Book copyWith({
     int? id,
     String? title,

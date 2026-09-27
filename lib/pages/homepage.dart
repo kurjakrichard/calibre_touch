@@ -28,16 +28,21 @@ class _HomeState extends ConsumerState<HomePage> {
   bool _isLoading = false;
   FileService fileService = FileService();
   var allowedExtensions = ['pdf', 'odt', 'epub', 'mobi'];
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveWidget.isDesktop(context);
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: !isDesktop,
-        title: const Text('Calibre Touch'),
-      ),
+      appBar: appBar(context, isDesktop),
       drawer: const DrawerWidget(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -54,6 +59,56 @@ class _HomeState extends ConsumerState<HomePage> {
         tablet: buildTablet(),
         desktop: buildDesktop(),
       ),
+    );
+  }
+
+  /// App bar that switches between the title and a search field.
+  PreferredSizeWidget appBar(BuildContext context, bool isDesktop) {
+    return AppBar(
+      automaticallyImplyLeading: !isDesktop,
+      title: !_isSearching
+          ? const Text('Calibre Touch')
+          : TextField(
+              controller: _searchController,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              // Search only when typing is finished (Enter / search key),
+              // not on every keystroke.
+              onSubmitted: (value) =>
+                  ref.read(booksProvider.notifier).search(value),
+              cursorColor: Colors.white,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(color: Colors.white),
+              decoration: const InputDecoration(
+                icon: Icon(Icons.search, color: Colors.white),
+                hintText: 'Search book',
+                hintStyle: TextStyle(color: Colors.white70),
+                border: InputBorder.none,
+              ),
+            ),
+      actions: <Widget>[
+        _isSearching
+            ? IconButton(
+                tooltip: 'Close search',
+                onPressed: () {
+                  setState(() {
+                    _isSearching = false;
+                    _searchController.clear();
+                  });
+                  ref.read(booksProvider.notifier).clearSearch();
+                },
+                icon: const Icon(Icons.cancel))
+            : IconButton(
+                tooltip: 'Search',
+                onPressed: () {
+                  setState(() {
+                    _isSearching = true;
+                  });
+                },
+                icon: const Icon(Icons.search)),
+      ],
     );
   }
 
@@ -180,7 +235,10 @@ class _HomeState extends ConsumerState<HomePage> {
       );
 
       final target = await fileService.bookFilePath(
-          path: path, filename: filename, format: format);
+          path: path,
+          filename: filename,
+          format: format,
+          customPath: ref.read(pathProvider));
       debugPrint('Copying to: $target');
       await fileService.copyFile(oldpath: sourcePath, newpath: target);
 

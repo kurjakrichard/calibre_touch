@@ -18,15 +18,12 @@ class SettingsForm extends ConsumerStatefulWidget {
 }
 
 class SettingsFormState extends ConsumerState<SettingsForm> {
-  String? _customPath;
   String? _defaultPath;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    final savedPath = ref.read(sharedUtilityProvider).getPath();
-    _customPath = savedPath.isEmpty ? null : savedPath;
     _loadDefaultPath();
   }
 
@@ -40,8 +37,9 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
     try {
       final path = await FilePicker.getDirectoryPath();
       if (path != null) {
-        setState(() => _customPath = path);
-        ref.read(sharedUtilityProvider).setPath(path: path);
+        // pathProvider is the single source of truth for the custom path;
+        // watching it in build() below is what updates the UI.
+        ref.read(pathProvider.notifier).setPath(path);
       }
     } catch (e) {
       if (mounted) {
@@ -53,14 +51,15 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
   }
 
   void _useDefaultFolder() {
-    setState(() => _customPath = null);
-    ref.read(sharedUtilityProvider).setPath(path: '');
+    ref.read(pathProvider.notifier).setPath('');
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentPath = _customPath ?? _defaultPath ?? 'Loading…';
-    final usingDefault = _customPath == null;
+    final rawPath = ref.watch(pathProvider);
+    final customPath = rawPath.isEmpty ? null : rawPath;
+    final currentPath = customPath ?? _defaultPath ?? 'Loading…';
+    final usingDefault = customPath == null;
     final isDark = ref.watch(modeProvider) == 'dark';
 
     return Column(

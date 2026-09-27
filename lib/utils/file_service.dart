@@ -5,22 +5,20 @@ import 'package:open_filex/open_filex.dart';
 // ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import '../main.dart';
-import 'constants.dart';
 
 class FileService {
   /// The ONE place that defines where book files live.
   ///
-  /// If the user picked a custom library folder on the Settings page, that
-  /// path (stored under [sharePathKey]) is used. Otherwise this falls back
-  /// to the app's own documents directory.
-  Future<String> libraryRoot() async {
-    final customPath = prefs.getString(sharePathKey);
+  /// [customPath] should be whatever `pathProvider` currently holds — that
+  /// provider (backed by `SharedUtility`/`SharedPreferences`) is the single
+  /// source of truth for the user's chosen library folder. This method never
+  /// reads SharedPreferences itself; when [customPath] is null or empty it
+  /// falls back to the app's own documents directory.
+  Future<String> libraryRoot({String? customPath}) async {
     if (customPath != null && customPath.isNotEmpty) {
       return customPath;
     }
-    final docs = await getApplicationDocumentsDirectory();
-    return p.join(docs.path, 'ebooks');
+    return defaultLibraryRoot();
   }
 
   /// The default library location, ignoring any custom folder the user
@@ -32,13 +30,63 @@ class FileService {
   }
 
   /// Absolute path of a book file, built from the values stored in the DB.
+  ///
+  /// Pass the current `pathProvider` value as [customPath] whenever the
+  /// caller isn't explicitly asking for the default location.
   Future<String> bookFilePath({
     required String path,
     required String filename,
     required String format,
+    String? customPath,
   }) async {
-    return p.joinAll(
-        [await libraryRoot(), ...path.split('/'), '$filename.$format']);
+    return p.joinAll([
+      await libraryRoot(customPath: customPath),
+      ...path.split('/'),
+      '$filename.$format'
+    ]);
+  }
+
+  /// Name of the cover image Calibre keeps in every book folder.
+  static const String coverFileName = 'cover.jpg';
+
+  /// Absolute path of a book's cover, from its `books.path` value:
+  /// `<library>/<Author>/<Title (id)>/cover.jpg` - exactly where Calibre
+  /// stores it.
+  Future<String> coverFilePath({
+    required String path,
+    String? customPath,
+  }) async {
+    return coverPathIn(await libraryRoot(customPath: customPath), path);
+  }
+
+  /// Same as [coverFilePath] when the library root is already known
+  /// (lets widgets build the path synchronously).
+  static String coverPathIn(String libraryRoot, String path) =>
+      p.joinAll([libraryRoot, ...path.split('/'), coverFileName]);
+
+  /// Moves cover.jpg from one book folder to another (used when a book's
+  /// folder is renamed). Best-effort: a missing cover is not an error.
+  Future<void> moveCover({
+    required String fromPath,
+    required String toPath,
+    String? customPath,
+  }) async {
+    if (fromPath == toPath) return;
+    final root = await libraryRoot(customPath: customPath);
+    final from = File(coverPathIn(root, fromPath));
+    final to = coverPathIn(root, toPath);
+    try {
+      if (!await from.exists() || await File(to).exists()) return;
+      await Directory(p.dirname(to)).create(recursive: true);
+      try {
+        await from.rename(to);
+      } on FileSystemException {
+        await from.copy(to);
+        await from.delete();
+      }
+    } catch (e) {
+      debugPrint('Cover not moved: $e');
+    }
   }
 
   Future<bool> fileExists(String path) => File(path).exists();
@@ -59,7 +107,14 @@ class FileService {
 
   /// Moves a book file. Throws if the source is missing or the target
   /// already exists, so nothing is ever overwritten or lost.
-  Future<void> moveBookFile({required String from, required String to}) async {
+  ///
+  /// Pass the current `pathProvider` value as [customPath] so the empty-
+  /// folder cleanup below never guesses at the library root itself.
+  Future<void> moveBookFile({
+    required String from,
+    required String to,
+    String? customPath,
+  }) async {
     if (p.equals(from, to)) return;
 
     final source = File(from);
@@ -85,12 +140,12 @@ class FileService {
 
     // The move itself succeeded. Tidying up is best-effort only: on Windows,
     // OneDrive/Explorer can lock a folder, and that must not fail the save.
-    unawaited(_cleanupEmptyDirs(from)); // runs in the background
+    unawaited(_cleanupEmptyDirs(from, customPath: customPath)); // background
   }
 
-  Future<void> _cleanupEmptyDirs(String movedFilePath) async {
+  Future<void> _cleanupEmptyDirs(String movedFilePath, {String? customPath}) async {
     try {
-      final root = await libraryRoot();
+      final root = await libraryRoot(customPath: customPath);
       final titleDir = Directory(p.dirname(movedFilePath));
       await _removeIfEmpty(titleDir, root); // .../Author/Title
       await _removeIfEmpty(titleDir.parent, root); // .../Author
@@ -104,9 +159,10 @@ class FileService {
   ///
   /// Returns `null` on success (a folder that is already gone counts as
   /// success) or an error message if it could not be deleted, so callers can
-  /// stop before touching the database.
-  Future<String?> deleteBookFolder(String relativePath) async {
-    final root = await libraryRoot();
+  /// stop before touching the database. Pass the current `pathProvider`
+  /// value as [customPath].
+  Future<String?> deleteBookFolder(String relativePath, {String? customPath}) async {
+    final root = await libraryRoot(customPath: customPath);
     final dir = Directory(p.joinAll([root, ...relativePath.split('/')]));
 
     // Safety net: never delete the library itself or anything outside it
@@ -175,21 +231,6 @@ class FileService {
       return false;
     } catch (_) {
       return true; // can't tell -> assume files are still there
-    }
-  }
-
-  // Old API, still used by update_book2.dart
-  Future<void> deleteBook(String oldPath) async {
-    try {
-      Directory dir = Directory(oldPath);
-      Directory parentDir = dir.parent;
-      await dir.delete(recursive: true);
-      bool isEmpty = await Directory(parentDir.path).list().isEmpty;
-      if (isEmpty) {
-        parentDir.delete(recursive: true);
-      }
-    } catch (e) {
-      debugPrint('Nincs ilyen fájl!');
     }
   }
 }

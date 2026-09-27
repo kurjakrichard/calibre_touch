@@ -16,8 +16,8 @@ final routesProvider = Provider<GoRouter>(
     // GoRoute, or every nested navigation ends up rebuilding this ancestor
     // route too (that's what caused the "/home/home/..." duplication and
     // the random bounce back to Home).
-    final needsFirstRun =
-        !ref.read(sharedUtilityProvider).isOnboardingComplete();
+    final bool needsFirstRun =
+        !ref.read(sharedUtilityProvider).isFirstRun();
     final isDesktop = Platform.isWindows || Platform.isLinux;
     final initialLocation = needsFirstRun
         ? Routes.firstRun.path

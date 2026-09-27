@@ -52,6 +52,16 @@ class BookNotifier extends Notifier<BookState> {
     }
   }
 
+  /// Filters the visible books (see [BookState.visibleBooks]).
+  void search(String query) {
+    state = state.copyWith(query: query.trim());
+  }
+
+  /// Shows every book again.
+  void clearSearch() {
+    state = state.copyWith(query: '');
+  }
+
   Future<Book?> getBook(int bookId) async {
     Book? book;
     try {

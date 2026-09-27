@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../data/data_export.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
+import 'book_cover.dart';
+import 'html_description.dart';
 import 'rating_bar.dart';
 import 'package:flutter/material.dart';
 
@@ -65,7 +67,8 @@ class Details extends ConsumerWidget {
       height: 400,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Text(
+        // comments.text is HTML (Calibre stores descriptions that way).
+        child: HtmlDescription(
           selectedBook.description,
           style: const TextStyle(fontSize: 13.0, height: 1.5),
         ),
@@ -113,10 +116,7 @@ class Details extends ConsumerWidget {
             child: Material(
               elevation: 15.0,
               shadowColor: Colors.yellow.shade900,
-              child: Image(
-                image: AssetImage(selectedBook.image),
-                fit: BoxFit.fitWidth,
-              ),
+              child: BookCover(book: selectedBook, fit: BoxFit.fitWidth),
             ),
           ),
         ),

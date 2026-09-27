@@ -7,3 +7,5 @@ export 'responsive.dart';
 export 'select_date_time.dart';
 export 'settings_form.dart';
 export 'drawer_widget.dart';
+export 'book_cover.dart';
+export 'html_description.dart';

@@ -42,12 +42,12 @@ class SharedUtility {
     sharedPreferences.setString(sharePathKey, path);
   }
 
-  bool isOnboardingComplete() {
-    return sharedPreferences.getBool(sharedOnboardingCompleteKey) ?? false;
+  bool isFirstRun() {
+    return sharedPreferences.getBool(sharedIsFirstRunKey) ?? false;
   }
 
-  void setOnboardingComplete({required bool complete}) {
-    sharedPreferences.setBool(sharedOnboardingCompleteKey, complete);
+  void setIsFirstRun({required bool complete}) {
+    sharedPreferences.setBool(sharedIsFirstRunKey, complete);
   }
 
   String getMode() {

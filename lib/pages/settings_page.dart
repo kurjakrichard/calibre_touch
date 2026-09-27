@@ -37,7 +37,7 @@ class SettingsPage extends ConsumerWidget {
                 onPressed: () {
                   ref
                       .read(sharedUtilityProvider)
-                      .setOnboardingComplete(complete: true);
+                      .setIsFirstRun(complete: true);
                   if (context.canPop()) {
                     context.pop();
                   } else {

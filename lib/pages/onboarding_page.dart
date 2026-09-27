@@ -41,7 +41,7 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   void _finishOnboarding() {
-    ref.read(sharedUtilityProvider).setOnboardingComplete(complete: true);
+    ref.read(sharedUtilityProvider).setIsFirstRun(complete: true);
     context.goNamed(Routes.home.name);
   }
 

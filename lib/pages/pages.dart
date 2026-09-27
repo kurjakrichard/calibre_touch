@@ -5,4 +5,3 @@ export 'homepage.dart';
 export 'settings_page.dart';
 export 'splashpage.dart';
 export 'update_book.dart';
-export 'update_book2.dart';

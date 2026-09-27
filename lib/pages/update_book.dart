@@ -33,6 +33,10 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
   /// The book as it was when this page opened. Never changes while editing,
   /// so old/new paths can't get mixed up by provider rebuilds.
   Book? _original;
+
+  /// Plain-text version of the description when the page opened. If the
+  /// user doesn't touch it, the original HTML (with its formatting) is kept.
+  String _initialDescriptionText = '';
   bool _saving = false;
 
   @override
@@ -43,7 +47,9 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
     if (book != null) {
       _titleController.text = book.title;
       _authorController.text = book.author;
-      _descriptionController.text = book.description;
+      // comments.text is HTML - edit it as plain text.
+      _descriptionController.text = HtmlText.toPlainText(book.description);
+      _initialDescriptionText = _descriptionController.text;
     }
   }
 
@@ -184,7 +190,10 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
       // 1) Files first. If they can't be deleted (book open in a reader,
       //    OneDrive lock, ...) stop here and keep the DB entry, so the
       //    library and the disk never get out of sync.
-      final error = await fileService.deleteBookFolder(book.path);
+      final error = await fileService.deleteBookFolder(
+        book.path,
+        customPath: ref.read(pathProvider),
+      );
       if (error != null) {
         _message('Could not delete the book files: $error');
         return;
@@ -210,7 +219,10 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
 
     final title = _titleController.text.trim();
     final author = _authorController.text.trim();
-    final description = _descriptionController.text.trim();
+    final descriptionText = _descriptionController.text.trim();
+    final description = descriptionText == _initialDescriptionText.trim()
+        ? original.description
+        : HtmlText.toHtml(descriptionText);
 
     if (title.isEmpty) return _message('Title cannot be empty');
     if (author.isEmpty) return _message('Author cannot be empty');
@@ -232,23 +244,32 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
       var newFilename = '$safeAuthor - $safeTitle';
       var notice = 'Update book successfully';
 
+      final customPath = ref.read(pathProvider);
       final oldFile = await fileService.bookFilePath(
         path: original.path,
         filename: original.filename,
         format: original.format,
+        customPath: customPath,
       );
       final newFile = await fileService.bookFilePath(
         path: newPath,
         filename: newFilename,
         format: original.format,
+        customPath: customPath,
       );
 
       // 1) Move the file FIRST, and only if the location really changes.
       if (!p.equals(oldFile, newFile)) {
         if (await fileService.fileExists(oldFile)) {
-          await fileService.moveBookFile(from: oldFile, to: newFile);
+          await fileService.moveBookFile(
+              from: oldFile, to: newFile, customPath: customPath);
+          // cover.jpg lives in the same folder - bring it along.
+          await fileService.moveCover(
+              fromPath: original.path, toPath: newPath, customPath: customPath);
         } else if (await fileService.fileExists(newFile)) {
           // An earlier attempt already moved the file: just fix the DB.
+          await fileService.moveCover(
+              fromPath: original.path, toPath: newPath, customPath: customPath);
         } else {
           // File is not where the DB says it is: save the metadata only and
           // keep the old location, so the DB never points to a made-up path.

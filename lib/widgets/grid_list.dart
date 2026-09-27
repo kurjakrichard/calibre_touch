@@ -14,7 +14,7 @@ class GridList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<Book> books = ref.watch(booksProvider).books;
+    final List<Book> books = ref.watch(booksProvider).visibleBooks;
     int size = MediaQuery.of(context).size.width.round();
 
     ///create book tile hero
@@ -40,6 +40,7 @@ class GridList extends ConsumerWidget {
                                     path: book.path,
                                     filename: book.filename,
                                     format: book.format,
+                                    customPath: ref.read(pathProvider),
                                   ));
                                 },
                                 child: const Text('Megnyitás',
@@ -104,10 +105,7 @@ class GridList extends ConsumerWidget {
                 Navigator.of(context).canPop();
                 // Navigator.pushNamed(context, 'detail/${book.title}');*/
               },
-              child: Image(
-                image: AssetImage(book.image),
-                fit: BoxFit.cover,
-              ),
+              child: BookCover(book: book),
             ),
           ),
         );
