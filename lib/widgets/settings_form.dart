@@ -32,9 +32,44 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
     if (mounted) setState(() => _defaultPath = defaultPath);
   }
 
+  /// Makes sure we can read/write a custom folder on Android.
+  /// Returns true if access is granted; otherwise tells the user why not.
+  Future<bool> _ensureStorageAccess() async {
+    final access = await StoragePermission.ensure();
+    if (!mounted) return false;
+    switch (access) {
+      case StorageAccess.granted:
+        return true;
+      case StorageAccess.denied:
+        AppAlerts.displaySnackbar(
+          context,
+          'Storage access is needed to use a custom folder.',
+        );
+      case StorageAccess.restricted:
+        AppAlerts.displaySnackbar(
+          context,
+          'Storage access is restricted on this device.',
+        );
+      case StorageAccess.permanentlyDenied:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Storage access was denied. Enable it in the app settings.',
+            ),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: StoragePermission.openSettings,
+            ),
+          ),
+        );
+    }
+    return false;
+  }
+
   Future<void> _pickFolder() async {
     setState(() => _isLoading = true);
     try {
+      if (!await _ensureStorageAccess()) return;
       final path = await FilePicker.getDirectoryPath();
       if (path != null) {
         // pathProvider is the single source of truth for the custom path;

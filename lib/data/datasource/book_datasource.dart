@@ -2,7 +2,6 @@
 import 'dart:io' show Directory, File, Platform, Process;
 import 'dart:math';
 import 'package:path/path.dart' show dirname, join;
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../../utils/utils.dart';
 import '../models/book.dart';

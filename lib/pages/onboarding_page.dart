@@ -165,9 +165,9 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
   /// Second onboarding page: the settings form (library folder + theme),
   /// embedded directly so first-time setup doubles as the settings screen.
   Widget secondPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
-      child: const SettingsForm(),
+    return const SingleChildScrollView(
+      padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+      child: SettingsForm(),
     );
   }
 

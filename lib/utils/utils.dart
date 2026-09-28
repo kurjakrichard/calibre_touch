@@ -4,3 +4,4 @@ export 'file_service.dart';
 export 'helpers.dart';
 export 'myobserver.dart';
 export 'html_text.dart';
+export 'storage_permission.dart';
