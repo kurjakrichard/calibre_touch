@@ -1,10 +1,7 @@
-//import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../data/data_export.dart';
 import '../providers/providers.dart';
-import '../utils/utils.dart';
 import 'widgets.dart';
 
 class GridList extends ConsumerWidget {
@@ -23,88 +20,9 @@ class GridList extends ConsumerWidget {
           child: Material(
             elevation: 15.0,
             child: InkWell(
-              onDoubleTap: () {
-                ref.read(selectedBookProvider.notifier).setSelectedBook(book);
-                showDialog(
-                    context: context,
-                    builder: (_) {
-                      return SimpleDialog(
-                        //title: const Text("Dialog Title"),
-                        children: [
-                          SimpleDialogOption(
-                            child: TextButton(
-                                onPressed: () async {
-                                  Navigator.of(context).pop();
-                                  final fs = FileService();
-                                  fs.openFile(await fs.bookFilePath(
-                                    path: book.path,
-                                    filename: book.filename,
-                                    format: book.format,
-                                    customPath: ref.read(pathProvider),
-                                  ));
-                                },
-                                child: const Text('Megnyitás',
-                                    style: TextStyle(fontSize: 16),
-                                    textAlign: TextAlign.start)),
-                          ),
-                          SimpleDialogOption(
-                            child: TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  context.pushNamed(Routes.updateBook.name);
-                                },
-                                child: const Text('Szerkesztés',
-                                    style: TextStyle(fontSize: 16),
-                                    textAlign: TextAlign.start)),
-                          ),
-                          SimpleDialogOption(
-                            child: TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  context.pushNamed(Routes.bookDetails.name);
-                                },
-                                child: const Text('Részletek',
-                                    style: TextStyle(fontSize: 16),
-                                    textAlign: TextAlign.start)),
-                          ),
-                          SimpleDialogOption(
-                            child: TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  AppAlerts.showAlertDeleteDialog(
-                                      context: context, ref: ref, book: book);
-                                },
-                                child: const Text('Törlés',
-                                    style: TextStyle(fontSize: 16),
-                                    textAlign: TextAlign.start)),
-                          ),
-                        ],
-                      );
-                    });
-              },
-              onTap: () {
-                ref.read(selectedBookProvider.notifier).setSelectedBook(book);
-                final isMobile = ResponsiveWidget.isMobile(context);
-
-                if (isMobile) {
-                  
-                  context.pushNamed(Routes.bookDetails.name);
-                }
-
-                /*     String path = '/home/sire/vscode/flutibre/${book.image}';
-
-                File image =
-                    File(path); // Or any other way to get a File instance.
-                var decodedImage =
-                    await decodeImageFromList(image.readAsBytesSync());
-                // ignore: avoid_print
-                print(decodedImage.width);
-                // ignore: avoid_print
-                print(decodedImage.height);
-                // ignore: use_build_context_synchronously
-                Navigator.of(context).canPop();
-                // Navigator.pushNamed(context, 'detail/${book.title}');*/
-              },
+              onDoubleTap: () => BookActions.showMenu(context, ref, book),
+              onLongPress: () => BookActions.showMenu(context, ref, book),
+              onTap: () => BookActions.select(context, ref, book),
               child: BookCover(book: book),
             ),
           ),

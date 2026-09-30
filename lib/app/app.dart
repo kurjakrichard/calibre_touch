@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import '../config/config.dart';
+import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 
 class CalibreTouch extends ConsumerStatefulWidget {
@@ -16,8 +17,13 @@ class _CalibreTouchState extends ConsumerState<CalibreTouch> {
   Widget build(BuildContext context) {
     final route = ref.watch(routesProvider);
     final mode = ref.watch(modeProvider);
+    final locale = ref.watch(localeProvider);
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
+      onGenerateTitle: (context) => context.l10n.appTitle,
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: mode == 'dark' ? ThemeMode.dark : ThemeMode.light,

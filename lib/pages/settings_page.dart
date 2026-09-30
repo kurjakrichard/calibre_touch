@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import '../widgets/widgets.dart';
@@ -23,13 +24,12 @@ class SettingsPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: primary,
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(context.l10n.settings),
       ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ListView(
             children: [
               const SettingsForm(),
               const SizedBox(height: 24),
@@ -44,9 +44,9 @@ class SettingsPage extends ConsumerWidget {
                     context.goNamed(Routes.home.name);
                   }
                 },
-                child: const Text(
-                  'Done',
-                  style: TextStyle(color: Colors.white),
+                child: Text(
+                  context.l10n.done,
+                  style: const TextStyle(color: Colors.white),
                 ),
               ),
             ],

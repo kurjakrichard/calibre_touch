@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../data/models/models.dart';
+import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 
@@ -28,10 +29,11 @@ class AppAlerts {
     required WidgetRef ref,
     required Book book,
   }) async {
+    final l10n = context.l10n;
     Widget cancelButton = TextButton(
-      child: const Text(
-        'NO',
-        style: TextStyle(color: buttoncolor),
+      child: Text(
+        l10n.no,
+        style: const TextStyle(color: buttoncolor),
       ),
       onPressed: () => context.pop(),
     );
@@ -44,7 +46,7 @@ class AppAlerts {
         );
         if (error != null) {
           // ignore: use_build_context_synchronously
-          displaySnackbar(context, 'Could not delete the book files: $error');
+          displaySnackbar(context, l10n.couldNotDeleteFiles(error));
           // ignore: use_build_context_synchronously
           context.pop();
           return;
@@ -57,7 +59,7 @@ class AppAlerts {
             displaySnackbar(
               // ignore: use_build_context_synchronously
               context,
-              'Book deleted successfully',
+              l10n.bookDeleted,
             );
 
             ref.read(selectedBookProvider.notifier).resetSelectedBook();
@@ -66,12 +68,12 @@ class AppAlerts {
           },
         );
       },
-      child: const Text('YES', style: TextStyle(color: buttoncolor)),
+      child: Text(l10n.yes, style: const TextStyle(color: buttoncolor)),
     );
 
     AlertDialog alert = AlertDialog(
-      title: const Text('Are you sure you want to delete this book?',
-          style: TextStyle(color: buttoncolor)),
+      title: Text(l10n.deleteConfirmTitle,
+          style: const TextStyle(color: buttoncolor)),
       actions: [
         deleteButton,
         cancelButton,

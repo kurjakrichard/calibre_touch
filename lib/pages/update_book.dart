@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:remove_diacritic/remove_diacritic.dart';
 import '../data/data_export.dart';
+import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import '../widgets/widgets.dart';
@@ -28,6 +29,10 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _authorController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _publisherController = TextEditingController();
+  final TextEditingController _seriesController = TextEditingController();
+  final TextEditingController _seriesIndexController = TextEditingController();
+  final TextEditingController _tagsController = TextEditingController();
   final FileService fileService = FileService();
 
   /// The book as it was when this page opened. Never changes while editing,
@@ -47,6 +52,10 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
     if (book != null) {
       _titleController.text = book.title;
       _authorController.text = book.author;
+      _publisherController.text = book.publisher;
+      _seriesController.text = book.series;
+      _seriesIndexController.text = Book.formatSeriesIndex(book.series_index);
+      _tagsController.text = book.tagList.join(', ');
       // comments.text is HTML - edit it as plain text.
       _descriptionController.text = HtmlText.toPlainText(book.description);
       _initialDescriptionText = _descriptionController.text;
@@ -58,6 +67,10 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
     _titleController.dispose();
     _authorController.dispose();
     _descriptionController.dispose();
+    _publisherController.dispose();
+    _seriesController.dispose();
+    _seriesIndexController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
@@ -65,16 +78,22 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
   Widget build(BuildContext context) {
     if (_original == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Update book')),
-        body: const Center(child: Text('Nincs könyv kiválasztva')),
+        appBar: AppBar(title: Text(context.l10n.updateBook)),
+        body: Center(child: Text(context.l10n.noBookSelected)),
       );
     }
 
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Update book',
-        ),
+        title: Text(l10n.updateBook),
+        actions: [
+          IconButton(
+            tooltip: l10n.deleteBook,
+            icon: const Icon(Icons.delete),
+            onPressed: _saving ? null : _deleteBook,
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -84,22 +103,58 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CommonTextField(
-                hintText: 'Title',
-                title: 'Title',
+                hintText: l10n.title,
+                title: l10n.title,
                 controller: _titleController,
               ),
               const Gap(30),
               CommonTextField(
-                hintText: 'Author',
-                title: 'Author',
+                hintText: l10n.author,
+                title: l10n.author,
                 controller: _authorController,
+              ),
+              const Gap(30),
+              CommonTextField(
+                hintText: l10n.publisher,
+                title: l10n.publisher,
+                controller: _publisherController,
+              ),
+              const Gap(30),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: CommonTextField(
+                      hintText: l10n.series,
+                      title: l10n.series,
+                      controller: _seriesController,
+                    ),
+                  ),
+                  const Gap(16),
+                  SizedBox(
+                    width: 90,
+                    child: CommonTextField(
+                      hintText: '1',
+                      title: l10n.seriesNumber,
+                      controller: _seriesIndexController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                    ),
+                  ),
+                ],
+              ),
+              const Gap(30),
+              CommonTextField(
+                hintText: l10n.tagsHint,
+                title: l10n.tagsCommaSeparated,
+                controller: _tagsController,
               ),
               const Gap(30),
               const SelectDateTime(),
               const Gap(30),
               CommonTextField(
-                hintText: 'Description',
-                title: 'Description',
+                hintText: l10n.description,
+                title: l10n.description,
                 maxLines: 6,
                 controller: _descriptionController,
               ),
@@ -110,26 +165,9 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
                     width: 120,
                     child: ElevatedButton(
                       onPressed: _saving ? null : _updateBook,
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text(
-                          'Save',
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Gap(16),
-                  SizedBox(
-                    width: 120,
-                    child: ElevatedButton(
-                      onPressed: _saving ? null : _deleteBook,
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('Delete'),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(l10n.save),
                       ),
                     ),
                   ),
@@ -153,25 +191,23 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
   }
 
   Future<bool> _confirmDelete(Book book) async {
+    final l10n = context.l10n;
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text(
-          'Are you sure you want to delete this book?',
-          style: TextStyle(color: buttoncolor),
+        title: Text(
+          l10n.deleteConfirmTitle,
+          style: const TextStyle(color: buttoncolor),
         ),
-        content: Text(
-          '"${book.title}" will be removed from the library and its file '
-          'will be deleted from disk.',
-        ),
+        content: Text(l10n.deleteConfirmContent(book.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('NO', style: TextStyle(color: buttoncolor)),
+            child: Text(l10n.no, style: const TextStyle(color: buttoncolor)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('YES', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.yes, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -182,6 +218,7 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
   Future<void> _deleteBook() async {
     final book = _original;
     if (book == null || _saving) return;
+    final l10n = context.l10n;
     if (!await _confirmDelete(book)) return;
     if (!mounted) return;
 
@@ -195,7 +232,7 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
         customPath: ref.read(pathProvider),
       );
       if (error != null) {
-        _message('Could not delete the book files: $error');
+        _message(l10n.couldNotDeleteFiles(error));
         return;
       }
 
@@ -203,11 +240,11 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
       await ref.read(booksProvider.notifier).deleteBook(book);
       await ref.read(selectedBookProvider.notifier).resetSelectedBook();
 
-      _message('Book deleted successfully');
+      _message(l10n.bookDeleted);
       if (mounted) context.goNamed(Routes.home.name);
     } catch (e, st) {
       debugPrint('Delete failed: $e\n$st');
-      _message('Delete failed: $e');
+      _message(l10n.deleteFailed('$e'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -216,6 +253,7 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
   Future<void> _updateBook() async {
     final original = _original;
     if (original == null || _saving) return;
+    final l10n = context.l10n;
 
     final title = _titleController.text.trim();
     final author = _authorController.text.trim();
@@ -224,8 +262,17 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
         ? original.description
         : HtmlText.toHtml(descriptionText);
 
-    if (title.isEmpty) return _message('Title cannot be empty');
-    if (author.isEmpty) return _message('Author cannot be empty');
+    if (title.isEmpty) return _message(l10n.titleEmpty);
+    if (author.isEmpty) return _message(l10n.authorEmpty);
+
+    final publisher = _publisherController.text.trim();
+    final series = _seriesController.text.trim();
+    final tags = Book.splitTags(_tagsController.text).join(', ');
+    final indexText = _seriesIndexController.text.trim().replaceAll(',', '.');
+    final seriesIndex = indexText.isEmpty ? 1.0 : double.tryParse(indexText);
+    if (seriesIndex == null || seriesIndex < 0) {
+      return _message(l10n.seriesNumberInvalid);
+    }
 
     final safeTitle = _safe(title);
     final safeAuthor = _safe(author);
@@ -235,14 +282,14 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
         safeTitle == '..' ||
         safeAuthor == '.' ||
         safeAuthor == '..') {
-      return _message('Title or author contains invalid characters');
+      return _message(l10n.invalidCharacters);
     }
 
     setState(() => _saving = true);
     try {
       var newPath = '$safeAuthor/$safeTitle';
       var newFilename = '$safeAuthor - $safeTitle';
-      var notice = 'Update book successfully';
+      var notice = l10n.bookUpdated;
 
       final customPath = ref.read(pathProvider);
       final oldFile = await fileService.bookFilePath(
@@ -275,7 +322,7 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
           // keep the old location, so the DB never points to a made-up path.
           newPath = original.path;
           newFilename = original.filename;
-          notice = 'Saved, but the book file was not found at: $oldFile';
+          notice = l10n.savedFileNotFound(oldFile);
         }
       }
 
@@ -287,6 +334,10 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
         filename: newFilename,
         last_modified: DateFormat.yMMMd().format(ref.read(dateProvider)),
         description: description,
+        publisher: publisher,
+        series: series,
+        series_index: seriesIndex,
+        tags: tags,
       );
       await ref.read(booksProvider.notifier).updateBook(book);
       await ref.read(selectedBookProvider.notifier).setSelectedBook(book);
@@ -295,7 +346,7 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
       if (mounted) context.goNamed(Routes.home.name);
     } catch (e, st) {
       debugPrint('Update failed: $e\n$st');
-      _message('Update failed: $e');
+      _message(l10n.updateFailed('$e'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

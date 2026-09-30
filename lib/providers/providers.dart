@@ -4,3 +4,6 @@ export 'shared_preferences_provider.dart';
 export 'book/book_export.dart';
 export 'selected_book_provider.dart';
 export 'path_provider.dart';
+export 'view_provider.dart';
+export 'locale_provider.dart';
+export 'reader_preference_provider.dart';

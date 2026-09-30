@@ -1,11 +1,13 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import 'app_alerts.dart';
 
-/// Library-folder picker + light/dark theme switcher.
+/// Language picker + library-folder picker + light/dark theme switcher +
+/// built-in reader vs. system app switch for EPUB/PDF.
 ///
 /// Used both by the standalone [SettingsPage] (reachable later from the
 /// drawer) and embedded as a page inside onboarding, so the two never drift
@@ -37,27 +39,20 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
   Future<bool> _ensureStorageAccess() async {
     final access = await StoragePermission.ensure();
     if (!mounted) return false;
+    final l10n = context.l10n;
     switch (access) {
       case StorageAccess.granted:
         return true;
       case StorageAccess.denied:
-        AppAlerts.displaySnackbar(
-          context,
-          'Storage access is needed to use a custom folder.',
-        );
+        AppAlerts.displaySnackbar(context, l10n.storageNeeded);
       case StorageAccess.restricted:
-        AppAlerts.displaySnackbar(
-          context,
-          'Storage access is restricted on this device.',
-        );
+        AppAlerts.displaySnackbar(context, l10n.storageRestricted);
       case StorageAccess.permanentlyDenied:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              'Storage access was denied. Enable it in the app settings.',
-            ),
+            content: Text(l10n.storageDenied),
             action: SnackBarAction(
-              label: 'Settings',
+              label: l10n.settings,
               onPressed: StoragePermission.openSettings,
             ),
           ),
@@ -78,7 +73,7 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
       }
     } catch (e) {
       if (mounted) {
-        AppAlerts.displaySnackbar(context, 'Could not open folder picker: $e');
+        AppAlerts.displaySnackbar(context, context.l10n.folderPickerError('$e'));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -91,23 +86,48 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final rawPath = ref.watch(pathProvider);
     final customPath = rawPath.isEmpty ? null : rawPath;
-    final currentPath = customPath ?? _defaultPath ?? 'Loading…';
+    final currentPath = customPath ?? _defaultPath ?? l10n.loading;
     final usingDefault = customPath == null;
     final isDark = ref.watch(modeProvider) == 'dark';
+    final language = ref.watch(localeProvider).languageCode;
+    final useBuiltInReader = ref.watch(useBuiltInReaderProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Where should Calibre Touch keep your books?',
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.language),
+          title: Text(l10n.language),
+          subtitle: Text(l10n.languageSubtitle),
+          trailing: DropdownButton<String>(
+            value: language,
+            underline: const SizedBox.shrink(),
+            onChanged: (code) {
+              if (code != null) {
+                ref.read(localeProvider.notifier).setLanguage(code);
+              }
+            },
+            items: [
+              DropdownMenuItem(value: 'en', child: Text(l10n.languageEnglish)),
+              DropdownMenuItem(
+                  value: 'hu', child: Text(l10n.languageHungarian)),
+            ],
+          ),
+        ),
+        const Divider(),
+        const SizedBox(height: 12),
+        Text(
+          l10n.libraryQuestion,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         Text(
-          usingDefault ? 'Using the default location:' : 'Using a custom folder:',
+          usingDefault ? l10n.usingDefaultLocation : l10n.usingCustomFolder,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 14, color: mainFontColor),
         ),
@@ -126,14 +146,14 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
             Expanded(
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _pickFolder,
-                child: const Text('Choose folder'),
+                child: Text(l10n.chooseFolder),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: OutlinedButton(
                 onPressed: usingDefault ? null : _useDefaultFolder,
-                child: const Text('Use default'),
+                child: Text(l10n.useDefault),
               ),
             ),
           ],
@@ -142,12 +162,23 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
         const Divider(),
         SwitchListTile(
           contentPadding: EdgeInsets.zero, 
-          title: const Text('Dark theme'),
-          subtitle: const Text('Switch between light and dark appearance'),
+          title: Text(l10n.darkTheme),
+          subtitle: Text(l10n.darkThemeSubtitle),
           value: isDark,
           onChanged: (value) {
             ref.read(modeProvider.notifier).setMode(value ? 'dark' : 'light');
           },
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.menu_book),
+          title: Text(l10n.builtInReader),
+          subtitle: Text(useBuiltInReader
+              ? l10n.builtInReaderOn
+              : l10n.builtInReaderOff),
+          value: useBuiltInReader,
+          onChanged: (value) =>
+              ref.read(useBuiltInReaderProvider.notifier).set(value),
         ),
       ],
     );

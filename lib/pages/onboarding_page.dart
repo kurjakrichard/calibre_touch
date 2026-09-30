@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import '../widgets/widgets.dart';
@@ -47,6 +48,7 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       bottomSheet: Container(
         color: buttoncolor,
@@ -62,13 +64,13 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
                           duration: const Duration(milliseconds: 500),
                           curve: Curves.easeInOut);
                     },
-                    child: const Text(
-                      'Back',
-                      style: TextStyle(color: Colors.white),
+                    child: Text(
+                      l10n.back,
+                      style: const TextStyle(color: Colors.white),
                     ))
-                : const Text(
-                    '  Back     ',
-                    style: TextStyle(color: buttoncolor),
+                : Text(
+                    '  ${l10n.back}     ',
+                    style: const TextStyle(color: buttoncolor),
                   ),
             Center(
               child: SmoothPageIndicator(
@@ -88,16 +90,16 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
                           duration: const Duration(milliseconds: 500),
                           curve: Curves.easeInOut);
                     },
-                    child: const Text(
-                      'Next',
-                      style: TextStyle(color: Colors.white),
+                    child: Text(
+                      l10n.next,
+                      style: const TextStyle(color: Colors.white),
                     ),
                   )
                 : TextButton(
                     onPressed: _finishOnboarding,
-                    child: const Text(
-                      'Get Started',
-                      style: TextStyle(color: Colors.white),
+                    child: Text(
+                      l10n.getStarted,
+                      style: const TextStyle(color: Colors.white),
                     ),
                   ),
           ],
@@ -115,6 +117,7 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   Widget firstPage() {
+    final l10n = context.l10n;
     return ListView(
       children: [
         Container(
@@ -130,31 +133,31 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
         Container(
           margin: const EdgeInsets.only(top: 40.0),
           padding: const EdgeInsets.symmetric(vertical: 20.0),
-          child: const Center(
+          child: Center(
             child: Text(
-              'Welcome to Calibre Touch',
-              style: TextStyle(fontSize: 18),
+              l10n.welcome,
+              style: const TextStyle(fontSize: 18),
               textAlign: TextAlign.center,
             ),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 40.0, vertical: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 20),
           child: Wrap(alignment: WrapAlignment.center, children: [
             Text(
-              'Calibre library reader for touchscreen devices.',
+              l10n.onboardingIntro,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
           ]),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 40.0),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40.0),
           child: Wrap(alignment: WrapAlignment.center, children: [
             Text(
-              'Calibre touch can work as a standalone e-book library manager. This is not compatible Calibre.',
+              l10n.onboardingStandalone,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
           ]),
         ),
@@ -172,6 +175,7 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   Widget thirdPage() {
+    final l10n = context.l10n;
     return ListView(
       children: [
         Container(
@@ -187,21 +191,21 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
         Container(
           margin: const EdgeInsets.only(top: 40.0),
           padding: const EdgeInsets.symmetric(vertical: 20.0),
-          child: const Center(
+          child: Center(
             child: Text(
-              "You're all set!",
-              style: TextStyle(fontSize: 18),
+              l10n.allSet,
+              style: const TextStyle(fontSize: 18),
               textAlign: TextAlign.center,
             ),
           ),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 20.0),
-          child: const Center(
+          child: Center(
             child: Text(
-              'Your library and appearance are ready to go. You can always revisit these from the menu.',
+              l10n.allSetDetails,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
           ),
         ),

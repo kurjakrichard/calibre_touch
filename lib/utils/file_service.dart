@@ -95,6 +95,41 @@ class FileService {
     OpenFilex.open(path);
   }
 
+  /// Absolute path of a book's folder (`<library>/<Author>/<Title (id)>`).
+  Future<String> bookFolderPath({
+    required String path,
+    String? customPath,
+  }) async {
+    return p.joinAll([
+      await libraryRoot(customPath: customPath),
+      ...path.split('/'),
+    ]);
+  }
+
+  /// Shows [folder] in the system file manager (Explorer on Windows).
+  /// Returns false if it could not be opened.
+  Future<bool> openFolder(String folder) async {
+    try {
+      if (Platform.isWindows) {
+        // explorer.exe returns exit code 1 even on success - don't check it.
+        await Process.run('explorer', [folder]);
+        return true;
+      }
+      if (Platform.isMacOS) {
+        return (await Process.run('open', [folder])).exitCode == 0;
+      }
+      if (Platform.isLinux) {
+        return (await Process.run('xdg-open', [folder])).exitCode == 0;
+      }
+      // Android / iOS: ask the system for an app that can show the folder.
+      final result = await OpenFilex.open(folder);
+      return result.type == ResultType.done;
+    } catch (e) {
+      debugPrint('Could not open folder $folder: $e');
+      return false;
+    }
+  }
+
   Future<File> copyFile({
     required String oldpath,
     required String newpath,

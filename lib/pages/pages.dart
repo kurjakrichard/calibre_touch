@@ -5,3 +5,5 @@ export 'homepage.dart';
 export 'settings_page.dart';
 export 'splashpage.dart';
 export 'update_book.dart';
+export 'reader_page.dart';
+export 'pdf_reader_page.dart';

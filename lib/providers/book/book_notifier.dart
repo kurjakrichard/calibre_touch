@@ -1,8 +1,10 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/data_export.dart';
 import '../../utils/file_service.dart';
+import '../../utils/storage_permission.dart';
 import '../path_provider.dart';
 import 'book_export.dart';
 
@@ -62,9 +64,25 @@ class BookNotifier extends Notifier<BookState> {
 
   Future<void> getBooks() async {
     final generation = _generation;
+    String? root;
     try {
-      final root = await FileService()
+      root = await FileService()
           .libraryRoot(customPath: _customPath.isEmpty ? null : _customPath);
+      // A folder outside the app's own storage needs "All files access" on
+      // Android 11+ (storage permission below). Without it sqlite can't open
+      // metadata.db, so say so instead of showing an empty library.
+      if (Platform.isAndroid &&
+          _customPath.isNotEmpty &&
+          !await StoragePermission.isGranted) {
+        if (generation != _generation) return;
+        state = state.copyWith(
+          books: const [],
+          libraryRoot: root,
+          error: const LibraryLoadError.storagePermission(),
+          loaded: true,
+        );
+        return;
+      }
       final books = await _repository.getAllBooks();
       if (generation != _generation) return; // library changed meanwhile
       if (root != state.libraryRoot) {
@@ -74,10 +92,25 @@ class BookNotifier extends Notifier<BookState> {
           ..clear()
           ..clearLiveImages();
       }
-      state = state.copyWith(books: books, libraryRoot: root);
+      state = state.copyWith(
+          books: books, libraryRoot: root, clearError: true, loaded: true);
     } catch (e) {
-      debugPrint(e.toString());
+      debugPrint('Library not loaded: $e');
+      if (generation != _generation) return;
+      state = state.copyWith(
+        books: const [],
+        libraryRoot: root,
+        error: LibraryLoadError.failed('$e'),
+        loaded: true,
+      );
     }
+  }
+
+  /// Asks for storage access (Android) and loads the library again.
+  Future<StorageAccess> grantAccessAndReload() async {
+    final access = await StoragePermission.ensure();
+    await getBooks();
+    return access;
   }
 
   /// Filters the visible books (see [BookState.visibleBooks]).

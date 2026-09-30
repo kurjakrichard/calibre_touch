@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../data/data_export.dart';
+import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import 'book_cover.dart';
 import 'html_description.dart';
+import 'book_actions.dart';
 import 'rating_bar.dart';
 import 'package:flutter/material.dart';
 
@@ -25,11 +27,11 @@ class Details extends ConsumerWidget {
               bottomContent(selectedBook)
             ],
           )
-        : const Align(
+        : Align(
             alignment: AlignmentDirectional.topCenter,
             child: Padding(
-              padding: EdgeInsets.only(top: 48.0),
-              child: Text('Nincs könyv kiválasztva'),
+              padding: const EdgeInsets.only(top: 48.0),
+              child: Text(context.l10n.noBookSelected),
             ));
   }
 
@@ -42,7 +44,7 @@ class Details extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              topLeft(selectedBook),
+              topLeft(selectedBook, context),
               topRight(selectedBook, context),
             ],
           ),
@@ -53,7 +55,7 @@ class Details extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Flexible(flex: 2, child: topLeft(selectedBook)),
+              Flexible(flex: 2, child: topLeft(selectedBook, context)),
               Flexible(flex: 3, child: topRight(selectedBook, context)),
             ],
           ),
@@ -78,16 +80,24 @@ class Details extends ConsumerWidget {
 
   ///detail top right
   Column topRight(Book selectedBook, BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         text(selectedBook.title,
             size: 16, isBold: true, padding: const EdgeInsets.only(top: 16.0)),
         text(
-          'by ${selectedBook.author}',
+          l10n.byAuthor(selectedBook.author),
           size: 12,
           padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
         ),
+        if (selectedBook.seriesLabel.isNotEmpty)
+          field(l10n.series, selectedBook.seriesLabel),
+        if (selectedBook.publisher.isNotEmpty)
+          field(l10n.publisher, selectedBook.publisher),
+        // Like Calibre: "Tags: Fantasy, Epic, Adventure"
+        if (selectedBook.tagList.isNotEmpty)
+          field(l10n.tags, selectedBook.tagList.join(', ')),
         text(
           selectedBook.price,
           isBold: true,
@@ -95,18 +105,41 @@ class Details extends ConsumerWidget {
         ),
         RatingBar(rating: selectedBook.rating),
         const SizedBox(height: 32.0),
-        ElevatedButton(
-          onPressed: () {           
-            context.pushNamed(Routes.updateBook.name);
+        Consumer(
+          builder: (context, ref, _) {
+            final readInApp = BookActions.canReadInApp(selectedBook,
+                useBuiltIn: ref.watch(useBuiltInReaderProvider));
+            return Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => BookActions.open(context, ref, selectedBook),
+                icon: Icon(readInApp ? Icons.menu_book : Icons.open_in_new),
+                label: Text(readInApp ? l10n.read : l10n.open),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  context.pushNamed(Routes.updateBook.name);
+                },
+                child: Text(l10n.editBook),
+              ),
+              ElevatedButton.icon(
+                onPressed: () =>
+                    BookActions.openFolder(context, ref, selectedBook),
+                icon: const Icon(Icons.folder_open),
+                label: Text(l10n.openFolder),
+              ),
+            ],
+          );
           },
-          child: const Text('Edit book'),
         )
       ],
     );
   }
 
   ///detail of book image and it's pages
-  Column topLeft(Book selectedBook) {
+  Column topLeft(Book selectedBook, BuildContext context) {
     return Column(
       children: <Widget>[
         Padding(
@@ -120,10 +153,24 @@ class Details extends ConsumerWidget {
             ),
           ),
         ),
-        text('${selectedBook.pages} pages', size: 12)
+        text(context.l10n.pageCount(selectedBook.pages), size: 12)
       ],
     );
   }
+
+  /// 'Label: value' line (e.g. Series, Publisher).
+  Widget field(String label, String value) => Padding(
+        padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
+        child: Text.rich(
+          TextSpan(children: [
+            TextSpan(
+                text: '$label: ',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            TextSpan(text: value),
+          ]),
+          style: const TextStyle(color: mainFontColor, fontSize: 13),
+        ),
+      );
 
   ///create text widget
   Padding text(String data,

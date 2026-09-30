@@ -11,6 +11,7 @@ class CommonTextField extends StatelessWidget {
     this.maxLines,
     this.suffixIcon,
     this.readOnly = false,
+    this.keyboardType,
   });
 
   final TextEditingController? controller;
@@ -19,6 +20,7 @@ class CommonTextField extends StatelessWidget {
   final int? maxLines;
   final Widget? suffixIcon;
   final bool readOnly;
+  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +39,7 @@ class CommonTextField extends StatelessWidget {
           },
           autocorrect: false,
           controller: controller,
+          keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hintText,
             suffixIcon: suffixIcon,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/l10n.dart';
 
 
 class ErrorPage extends StatelessWidget {
@@ -13,7 +14,7 @@ class ErrorPage extends StatelessWidget {
     return Scaffold(
       body: Center(
           child: Text(
-        'Error: ${error?.message}',
+        context.l10n.errorMessage('${error?.message}'),
         style: Theme.of(context).textTheme.headlineLarge,
       )),
     );

@@ -7,7 +7,7 @@ import '../utils/utils.dart';
 
 /// Placeholder shown while the library loads, or when the book has
 /// no cover.jpg in its folder.
-const String placeholderCover = 'assets/corel.jpg';
+const String placeholderCover = 'assets/cover.png';
 
 /// A book's cover, loaded from the file system the way Calibre stores it:
 /// `<library>/<book.path>/cover.jpg`.

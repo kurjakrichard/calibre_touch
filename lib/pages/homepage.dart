@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:remove_diacritic/remove_diacritic.dart';
 import '../data/data_export.dart';
+import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import '../widgets/widgets.dart';
@@ -64,10 +65,11 @@ class _HomeState extends ConsumerState<HomePage> {
 
   /// App bar that switches between the title and a search field.
   PreferredSizeWidget appBar(BuildContext context, bool isDesktop) {
+    final l10n = context.l10n;
     return AppBar(
       automaticallyImplyLeading: !isDesktop,
       title: !_isSearching
-          ? const Text('Calibre Touch')
+          ? Text(l10n.appTitle)
           : TextField(
               controller: _searchController,
               autofocus: true,
@@ -84,21 +86,22 @@ class _HomeState extends ConsumerState<HomePage> {
               decoration: InputDecoration(
                 // Tappable search button (same as pressing Enter).
                 prefixIcon: IconButton(
-                  tooltip: 'Search',
+                  tooltip: l10n.search,
                   icon: const Icon(Icons.search, color: Colors.white),
                   onPressed: () => ref
                       .read(booksProvider.notifier)
                       .search(_searchController.text),
                 ),
-                hintText: 'Search book',
-                hintStyle: TextStyle(color: Colors.white70),
+                hintText: l10n.searchBook,
+                hintStyle: const TextStyle(color: Colors.white70),
                 border: InputBorder.none,
               ),
             ),
       actions: <Widget>[
+        const BookViewMenuButton(),
         _isSearching
             ? IconButton(
-                tooltip: 'Close search',
+                tooltip: l10n.closeSearch,
                 onPressed: () {
                   setState(() {
                     _isSearching = false;
@@ -108,7 +111,7 @@ class _HomeState extends ConsumerState<HomePage> {
                 },
                 icon: const Icon(Icons.cancel))
             : IconButton(
-                tooltip: 'Search',
+                tooltip: l10n.search,
                 onPressed: () {
                   setState(() {
                     _isSearching = true;
@@ -154,15 +157,16 @@ class _HomeState extends ConsumerState<HomePage> {
       );
 
   Widget bookList({double count = 1.0}) {
-    return GridList(count: count);
+    return BookViewBody(count: count);
   }
 
   Future<void> _insertBook(Book book, BuildContext context) async {
+    final l10n = context.l10n;
     final id = await ref.read(booksProvider.notifier).addBook(book);
     if (id == null) {
       // addBook() swallows DB errors and returns null, so report it here.
       if (context.mounted) {
-        AppAlerts.displaySnackbar(context, 'Could not save book to database');
+        AppAlerts.displaySnackbar(context, l10n.couldNotSaveBook);
       }
       return;
     }
@@ -171,25 +175,25 @@ class _HomeState extends ConsumerState<HomePage> {
       ref.read(selectedBookProvider.notifier).setSelectedBook(saved);
     }
     if (context.mounted) {
-      AppAlerts.displaySnackbar(context, 'Add book successfully');
+      AppAlerts.displaySnackbar(context, l10n.bookAdded);
       context.go(Routes.home.path);
     }
   }
 
   Future<bool> _confirmDuplicate() async {
+    final l10n = context.l10n;
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        content: const Text(
-            'Már van ilyen című könyv a könyvtárban!\nBiztos hozzáadod?'),
+        content: Text(l10n.duplicateTitle),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Igen'),
+            child: Text(l10n.yes),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Nem'),
+            child: Text(l10n.no),
           ),
         ],
       ),
@@ -231,7 +235,7 @@ class _HomeState extends ConsumerState<HomePage> {
         author: author,
         title: title,
         description: '',
-        image: 'assets/corel.jpg',
+        image: 'assets/cover.png', 
         last_modified: '',
         path: path,
         filename: filename,
@@ -253,7 +257,7 @@ class _HomeState extends ConsumerState<HomePage> {
     } catch (e, st) {
       debugPrint('Import failed: $e\n$st');
       if (mounted) {
-        AppAlerts.displaySnackbar(context, 'Import failed: $e');
+        AppAlerts.displaySnackbar(context, context.l10n.importFailed('$e'));
       }
       return null;
     } finally {

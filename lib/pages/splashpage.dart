@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/l10n.dart';
 import '../utils/utils.dart';
 
 class SplashPage extends StatefulWidget {
@@ -51,9 +52,9 @@ class SplashPageState extends State<SplashPage> {
               height: 400.0,
               width: 400.0,
             ),
-            const Text(
-              'Welcome to Calibre Touch',
-              style: TextStyle(fontSize: 18, color: Colors.white),
+            Text(
+              context.l10n.welcome,
+              style: const TextStyle(fontSize: 18, color: Colors.white),
               textAlign: TextAlign.center,
             ),
           ],

@@ -13,7 +13,11 @@ enum Bookkeys {
   last_modified(name: 'last_modified'),
   description(name: 'description'),
   pages(name: 'pages'),
-  rating(name: 'rating');
+  rating(name: 'rating'),
+  publisher(name: 'publisher'),
+  series(name: 'series'),
+  series_index(name: 'series_index'),
+  tags(name: 'tags');
 
   const Bookkeys({
     required this.name,
@@ -42,7 +46,9 @@ enum Routes {
   firstRun(name: 'firstRun', path: '/firstRun'),
   settings(name: 'settings', path: '/settings'),
   splash(name: 'splash', path: '/splashPage'),
-  updateBook(name: 'updateBook', path: 'updateBook');
+  updateBook(name: 'updateBook', path: 'updateBook'),
+  reader(name: 'reader', path: '/reader'),
+  pdfReader(name: 'pdfReader', path: '/pdf');
 
   const Routes({
     required this.name,
@@ -129,6 +135,7 @@ enum DropTriggers {
       name: '''DROP TRIGGER fkc_delete_on_publishers '''),
   fkc_delete_on_tags_drop(name: '''DROP TRIGGER fkc_delete_on_tags '''),
   fkc_delete_on_series_drop(name: '''DROP TRIGGER fkc_delete_on_series '''),
+  series_insert_trg_drop(name: '''DROP TRIGGER IF EXISTS series_insert_trg'''),
   ;
 
   const DropTriggers({

@@ -3,6 +3,8 @@ import 'dart:io' show Directory, File, Platform, Process;
 import 'dart:math';
 import 'package:path/path.dart' show dirname, join;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart'
+    show applyWorkaroundToOpenSqlite3OnOldAndroidVersions;
 import '../../utils/utils.dart';
 import '../models/book.dart';
 
@@ -46,6 +48,10 @@ const int calibreSchemaVersion = 27;
 ///                       table is exactly Calibre's own extension point
 ///                       for "an arbitrary string tied to a book", so
 ///                       this needs no schema changes.
+///   - Book.publisher <-> publishers + books_publishers_link (one per book)
+///   - Book.series   <-> series + books_series_link (one per book),
+///                       Book.series_index <-> books.series_index
+///   - Book.tags     <-> tags + books_tags_link (comma separated in Book)
 ///   - Book.id/title/path/last_modified <-> books columns directly.
 ///
 /// `sort`, `author_sort` and `uuid` (real columns on `books`) are
@@ -82,7 +88,15 @@ class BookDatasource {
     if (_closed) {
       return Future.error(StateError('BookDatasource for "$_customPath" was closed'));
     }
-    return _dbFuture ??= _open();
+    // A failed open (e.g. no storage permission yet on Android) must not be
+    // cached, otherwise the library stays empty even after access is granted.
+    return _dbFuture ??= _open().then(
+      (db) => db,
+      onError: (Object e, StackTrace st) {
+        _dbFuture = null;
+        Error.throwWithStackTrace(e, st);
+      },
+    );
   }
 
   Future<Database> _open() async {
@@ -92,25 +106,25 @@ class BookDatasource {
     await Directory(libraryDir).create(recursive: true);
     final path = join(libraryDir, dbName);
 
-    final Database database;
-    if (Platform.isAndroid || Platform.isIOS) {
-      database = await openDatabase(
-        path,
+    // Always use the FFI factory, backed by the SQLite bundled with
+    // sqlite3_flutter_libs. The sqflite plugin on Android uses the OS's
+    // system SQLite, which is often compiled without FTS5 - and Calibre's
+    // schema needs FTS5 (annotations_fts / annotations_fts_stemmed), so
+    // CREATE VIRTUAL TABLE ... USING fts5 fails with "no such module: fts5".
+    if (Platform.isAndroid) {
+      // Needed on some Android < 7 devices to load the bundled libsqlite3.so.
+      await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
+    }
+    sqfliteFfiInit();
+    final Database database = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
         version: calibreSchemaVersion,
         onUpgrade: _onUpgrade,
         onCreate: _onCreate,
-      );
-    } else {
-      sqfliteFfiInit();
-      database = await databaseFactoryFfi.openDatabase(
-        path,
-        options: OpenDatabaseOptions(
-          version: calibreSchemaVersion,
-          onUpgrade: _onUpgrade,
-          onCreate: _onCreate,
-        ),
-      );
-    }
+      ),
+    );
+    await _repairSchemaIfIncomplete(database);
     await database.execute('PRAGMA foreign_keys = ON');
     return database;
   }
@@ -210,7 +224,19 @@ class BookDatasource {
       COALESCE((SELECT CAST(rating AS REAL) FROM ratings
                 WHERE ratings.id IN
                   (SELECT rating FROM books_ratings_link WHERE book = books.id)),
-               0.0) AS ${Bookkeys.rating.name}
+               0.0) AS ${Bookkeys.rating.name},
+      COALESCE((SELECT name FROM publishers
+                WHERE publishers.id IN
+                  (SELECT publisher FROM books_publishers_link
+                   WHERE book = books.id)), '') AS ${Bookkeys.publisher.name},
+      COALESCE((SELECT name FROM series
+                WHERE series.id IN
+                  (SELECT series FROM books_series_link
+                   WHERE book = books.id)), '') AS ${Bookkeys.series.name},
+      books.series_index AS ${Bookkeys.series_index.name},
+      COALESCE((SELECT group_concat(name, ', ') FROM books_tags_link btl
+                JOIN tags ON tags.id = btl.tag
+                WHERE btl.book = books.id), '') AS ${Bookkeys.tags.name}
     FROM books
   ''';
 
@@ -220,6 +246,85 @@ class BookDatasource {
     if (book.path.isEmpty) return false;
     return File(FileService.coverPathIn(dirname(db.path), book.path))
         .existsSync();
+  }
+
+  // ---- publisher / series / tags ----
+  //
+  // Like Calibre itself, a publisher/series/tag that no book uses any more
+  // is deleted. Only items this book was linked to are checked, so empty
+  // items the user created elsewhere (e.g. in desktop Calibre) are kept
+  // unless this book just stopped using them.
+
+  /// Ids in [linkTable].[column] linked to [bookId].
+  Future<List<int>> _linkedIds(DatabaseExecutor db, String linkTable,
+      String column, int bookId) async {
+    final rows = await db.query(linkTable,
+        columns: [column], where: 'book = ?', whereArgs: [bookId]);
+    return rows.map((r) => r[column] as int).toList();
+  }
+
+  /// Deletes the rows of [table] among [ids] that no book links to any more.
+  Future<void> _deleteUnused(DatabaseExecutor db, String table,
+      String linkTable, String column, Iterable<int> ids) async {
+    for (final id in ids.toSet()) {
+      final used = await db.query(linkTable,
+          columns: ['book'], where: '$column = ?', whereArgs: [id], limit: 1);
+      if (used.isEmpty) {
+        await db.delete(table, where: 'id = ?', whereArgs: [id]);
+      }
+    }
+  }
+
+  Future<void> _setPublisher(
+      DatabaseExecutor db, int bookId, String publisher) async {
+    final name = publisher.trim();
+    final old = await _linkedIds(db, 'books_publishers_link', 'publisher', bookId);
+    await db.delete('books_publishers_link',
+        where: 'book = ?', whereArgs: [bookId]);
+    if (name.isNotEmpty) {
+      final id = await _getOrCreateId(db, 'publishers', 'name', name,
+          {'name': name, 'sort': name, 'link': ''});
+      await _linkBook(db, 'books_publishers_link', bookId, 'publisher', id);
+    }
+    await _deleteUnused(
+        db, 'publishers', 'books_publishers_link', 'publisher', old);
+  }
+
+  Future<void> _setSeries(DatabaseExecutor db, int bookId, String series) async {
+    final name = series.trim();
+    final old = await _linkedIds(db, 'books_series_link', 'series', bookId);
+    await db.delete('books_series_link', where: 'book = ?', whereArgs: [bookId]);
+    if (name.isNotEmpty) {
+      final rows = await db.query('series',
+          columns: ['id'], where: 'name = ?', whereArgs: [name], limit: 1);
+      late final int id;
+      if (rows.isNotEmpty) {
+        id = rows.first['id'] as int;
+      } else {
+        // series_insert_trg calls title_sort(), which plain sqlite doesn't
+        // have - drop it for this insert and compute sort here instead.
+        await db.execute(DropTriggers.series_insert_trg_drop.name);
+        try {
+          id = await db.insert('series',
+              {'name': name, 'sort': _titleSort(name), 'link': ''});
+        } finally {
+          await db.execute(Triggers.series_insert_trg.name);
+        }
+      }
+      await _linkBook(db, 'books_series_link', bookId, 'series', id);
+    }
+    await _deleteUnused(db, 'series', 'books_series_link', 'series', old);
+  }
+
+  Future<void> _setTags(DatabaseExecutor db, int bookId, String tags) async {
+    final old = await _linkedIds(db, 'books_tags_link', 'tag', bookId);
+    await db.delete('books_tags_link', where: 'book = ?', whereArgs: [bookId]);
+    for (final name in Book.splitTags(tags)) {
+      final id = await _getOrCreateId(
+          db, 'tags', 'name', name, {'name': name, 'link': ''});
+      await _linkBook(db, 'books_tags_link', bookId, 'tag', id);
+    }
+    await _deleteUnused(db, 'tags', 'books_tags_link', 'tag', old);
   }
 
   Future<int> addBook(Book book) async {
@@ -245,6 +350,7 @@ class BookDatasource {
           'uuid': uuid,
           'has_cover': _hasCover(db, book) ? 1 : 0,
           'last_modified': book.last_modified,
+          'series_index': book.series_index,
         });
       } finally {
         await txn.execute(Triggers.books_insert_trg.name);
@@ -302,6 +408,10 @@ class BookDatasource {
         );
       }
 
+      await _setPublisher(txn, bookId, book.publisher);
+      await _setSeries(txn, bookId, book.series);
+      await _setTags(txn, bookId, book.tags);
+
       return bookId;
     });
   }
@@ -358,6 +468,7 @@ class BookDatasource {
             'path': book.path,
             'has_cover': _hasCover(db, book) ? 1 : 0,
             'last_modified': book.last_modified,
+            'series_index': book.series_index,
           },
           where: 'id = ?',
           whereArgs: [bookId],
@@ -426,6 +537,10 @@ class BookDatasource {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
+      await _setPublisher(txn, bookId, book.publisher);
+      await _setSeries(txn, bookId, book.series);
+      await _setTags(txn, bookId, book.tags);
+
       return result;
     });
   }
@@ -437,7 +552,26 @@ class BookDatasource {
     // this book. books_pages_link has an explicit
     // ON DELETE CASCADE foreign key instead, honoured because
     // PRAGMA foreign_keys was turned on when the database was opened.
-    return db.delete('books', where: 'id = ?', whereArgs: [book.id]);
+    final bookId = book.id;
+    if (bookId == null) return 0;
+    return db.transaction<int>((txn) async {
+      // Remember what the book used, so now-unused publisher/series/tags
+      // can be removed afterwards (as Calibre does).
+      final publishers = await _linkedIds(
+          txn, 'books_publishers_link', 'publisher', bookId);
+      final series =
+          await _linkedIds(txn, 'books_series_link', 'series', bookId);
+      final tags = await _linkedIds(txn, 'books_tags_link', 'tag', bookId);
+
+      final result =
+          await txn.delete('books', where: 'id = ?', whereArgs: [bookId]);
+
+      await _deleteUnused(
+          txn, 'publishers', 'books_publishers_link', 'publisher', publishers);
+      await _deleteUnused(txn, 'series', 'books_series_link', 'series', series);
+      await _deleteUnused(txn, 'tags', 'books_tags_link', 'tag', tags);
+      return result;
+    });
   }
 
   /// Closes this library's database (called by the provider's onDispose
@@ -470,7 +604,112 @@ class BookDatasource {
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    await db.execute('''
+    // Run the schema one statement at a time. On Android, sqflite's
+    // execute() goes through SQLiteDatabase.execSQL, which silently runs
+    // ONLY THE FIRST statement of a multi-statement string - so passing
+    // the whole script in one execute() created just `authors`, while
+    // sqflite still stamped user_version, and onCreate never ran again
+    // ("no such table: books"). Desktop (sqflite_ffi) runs every
+    // statement, which is why it only broke on Android.
+    final batch = db.batch();
+    for (final statement in _splitSqlScript(_calibreSchemaSql)) {
+      batch.execute(statement);
+    }
+    await batch.commit(noResult: true);
+
+    await _createLibraryFolders(dirname(db.path));
+  }
+
+  /// Repairs a library created by an older Android build, where only the
+  /// first statement of the schema (the `authors` table) was ever run.
+  /// Creates every missing table/index/view/trigger and leaves existing
+  /// ones (and their data) untouched.
+  Future<void> _repairSchemaIfIncomplete(Database db) async {
+    final rows = await db.rawQuery(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'books'");
+    if (rows.isNotEmpty) return;
+
+    for (final statement in _splitSqlScript(_calibreSchemaSql)) {
+      try {
+        await db.execute(statement);
+      } on DatabaseException catch (e) {
+        if (!e.toString().contains('already exists')) rethrow;
+      }
+    }
+    await _createLibraryFolders(dirname(db.path));
+  }
+
+  /// Splits an SQL script into single statements on top-level `;`.
+  /// Semicolons inside string literals, comments, trigger bodies
+  /// (BEGIN ... END) and CASE ... END expressions are not split on.
+  static List<String> _splitSqlScript(String script) {
+    final statements = <String>[];
+    final current = StringBuffer();
+    var depth = 0;
+    var i = 0;
+    final n = script.length;
+
+    bool isWordChar(int c) =>
+        (c >= 0x30 && c <= 0x39) || // 0-9
+        (c >= 0x41 && c <= 0x5A) || // A-Z
+        (c >= 0x61 && c <= 0x7A) || // a-z
+        c == 0x5F; // _
+
+    while (i < n) {
+      final ch = script[i];
+
+      // Quoted strings / identifiers: copy through to the closing quote.
+      if (ch == "'" || ch == '"' || ch == '`') {
+        final end = script.indexOf(ch, i + 1);
+        final stop = end == -1 ? n : end + 1;
+        current.write(script.substring(i, stop));
+        i = stop;
+        continue;
+      }
+      // -- line comment
+      if (ch == '-' && i + 1 < n && script[i + 1] == '-') {
+        final end = script.indexOf('\n', i);
+        i = end == -1 ? n : end;
+        continue;
+      }
+      // /* block comment */
+      if (ch == '/' && i + 1 < n && script[i + 1] == '*') {
+        final end = script.indexOf('*/', i + 2);
+        i = end == -1 ? n : end + 2;
+        continue;
+      }
+      // Keywords that open/close a block.
+      if (isWordChar(ch.codeUnitAt(0))) {
+        var j = i;
+        while (j < n && isWordChar(script.codeUnitAt(j))) {
+          j++;
+        }
+        final word = script.substring(i, j).toUpperCase();
+        if (word == 'BEGIN' || word == 'CASE') depth++;
+        if (word == 'END' && depth > 0) depth--;
+        current.write(script.substring(i, j));
+        i = j;
+        continue;
+      }
+      if (ch == ';' && depth == 0) {
+        final statement = current.toString().trim();
+        if (statement.isNotEmpty) statements.add(statement);
+        current.clear();
+        i++;
+        continue;
+      }
+      current.write(ch);
+      i++;
+    }
+    final tail = current.toString().trim();
+    if (tail.isNotEmpty) statements.add(tail);
+    return statements;
+  }
+
+  /// Calibre's recreate_schema.sql - see the class doc comment above for
+  /// the title_sort()/uuid4() caveat. Always run it through
+  /// [_splitSqlScript], never as a single execute().
+  static const String _calibreSchemaSql = '''
 CREATE TABLE authors ( id   INTEGER PRIMARY KEY,
                               name TEXT NOT NULL COLLATE NOCASE,
                               sort TEXT COLLATE NOCASE,
@@ -1113,10 +1352,7 @@ CREATE TRIGGER series_update_trg
         BEGIN
           UPDATE series SET sort=title_sort(NEW.name) WHERE id=NEW.id;
         END;
-''');
-
-    await _createLibraryFolders(dirname(db.path));
-  }
+''';
 
   /// Creates the hidden folders Calibre keeps next to metadata.db:
   ///   .calnotes/        - notes for authors/tags/series etc. Calibre

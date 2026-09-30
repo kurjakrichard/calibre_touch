@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import 'common_text_field.dart';
@@ -12,7 +13,7 @@ class SelectDateTime extends ConsumerWidget {
     final date = ref.watch(dateProvider);
 
     return CommonTextField(
-      title: 'Date',
+      title: context.l10n.date,
       hintText: Helpers.dateFormatter(date),
       readOnly: true,
       suffixIcon: IconButton(

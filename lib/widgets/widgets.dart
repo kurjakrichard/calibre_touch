@@ -9,3 +9,5 @@ export 'settings_form.dart';
 export 'drawer_widget.dart';
 export 'book_cover.dart';
 export 'html_description.dart';
+export 'book_actions.dart';
+export 'book_views.dart';

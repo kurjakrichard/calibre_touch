@@ -17,6 +17,21 @@ final List<GoRoute> appRoutes = [
     builder: SettingsPage.builder,
   ),
   GoRoute(
+    // Full-screen e-book reader (outside /home, so nothing of the library
+    // screen stays around it).
+    name: Routes.reader.name,
+    path: Routes.reader.path,
+    parentNavigatorKey: navigationKey,
+    pageBuilder: ReaderPage.pageBuilder,
+  ),
+  GoRoute(
+    // Full-screen PDF reader.
+    name: Routes.pdfReader.name,
+    path: Routes.pdfReader.path,
+    parentNavigatorKey: navigationKey,
+    pageBuilder: PdfReaderPage.pageBuilder,
+  ),
+  GoRoute(
     name: Routes.splash.name,
     path: Routes.splash.path,
     parentNavigatorKey: navigationKey,
