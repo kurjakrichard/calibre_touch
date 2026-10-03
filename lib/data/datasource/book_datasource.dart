@@ -1,10 +1,12 @@
 // ignore: depend_on_referenced_packages
 import 'dart:io' show Directory, File, Platform, Process;
 import 'dart:math';
-import 'package:path/path.dart' show dirname, join;
+import 'package:path/path.dart' show dirname, join, joinAll;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart'
     show applyWorkaroundToOpenSqlite3OnOldAndroidVersions;
+import '../../metadata/calibre.dart';
+import '../../metadata/opf_writer.dart';
 import '../../utils/utils.dart';
 import '../models/book.dart';
 
@@ -41,6 +43,10 @@ const int calibreSchemaVersion = 27;
 ///                       books_pages_link_create_trigger)
 ///   - Book.filename/format <-> data.name / data.format (first/only
 ///                       data row for that book)
+///   - Book.pubdate  <-> books.pubdate ('' <-> Calibre's undefined date)
+///   - Book.languages <-> languages + books_languages_link ('eng, hun')
+///   - Book.identifiers <-> identifiers ('isbn:..., goodreads:...'; the
+///                       app's own 'price'/'cover_image' rows excluded)
 ///   - Book.price / Book.image  - there's no Calibre column for either
 ///                       of these app-specific fields, so they're kept
 ///                       as ordinary rows in `identifiers`
@@ -54,8 +60,10 @@ const int calibreSchemaVersion = 27;
 ///   - Book.tags     <-> tags + books_tags_link (comma separated in Book)
 ///   - Book.id/title/path/last_modified <-> books columns directly.
 ///
-/// `sort`, `author_sort` and `uuid` (real columns on `books`) are
-/// computed here in Dart and are not exposed on [Book].
+/// `sort`, `author_sort`, `uuid`, `timestamp`, `last_modified` (real
+/// columns on `books`), `authors.sort` and `data.uncompressed_size` are
+/// computed here in Dart, the way Calibre computes them (see [Calibre]),
+/// and are not exposed on [Book].
 ///
 /// IMPORTANT - title_sort()/uuid4(): the schema's `books_insert_trg`,
 /// `books_update_trg`, `series_insert_trg` and `series_update_trg`
@@ -126,20 +134,43 @@ class BookDatasource {
     );
     await _repairSchemaIfIncomplete(database);
     await database.execute('PRAGMA foreign_keys = ON');
+    await _removeLegacyIdentifiers(database);
     return database;
   }
 
   // ---- Dart-side replacements for Calibre's title_sort()/uuid4() ----
 
-  /// Mimics Calibre's title_sort(): move a single leading "A"/"An"/"The"
-  /// to the end after a comma, so titles sort by their real first word.
-  String _titleSort(String title) {
-    final t = title.trim();
-    final match = RegExp(r'^(A|An|The)\s+(.+)$', caseSensitive: false)
-        .firstMatch(t);
-    if (match == null) return t;
-    return '${match.group(2)}, ${match.group(1)}';
+  /// Calibre's title_sort(): "A Crown of Ruin" -> "Crown of Ruin, A".
+  String _titleSort(String title, [List<String> languages = const []]) =>
+      Calibre.titleSort(title, languages: languages);
+
+  /// books.author_sort: every author's sort, joined like Calibre does.
+  String _authorSort(List<String> authors) =>
+      authors.map(Calibre.authorSort).join(' & ');
+
+  /// A new row for the authors table (sort as Calibre computes it).
+  Map<String, Object?> _authorRow(String name) =>
+      {'name': name, 'sort': Calibre.authorSort(name), 'link': ''};
+
+  /// Calibre stores formats upper case (EPUB, PDF); files are lower case.
+  String _format(Book book) => book.format.trim().toUpperCase();
+
+  /// Size of the book file in bytes (data.uncompressed_size), 0 if it
+  /// isn't there (yet).
+  int _fileSize(Database db, Book book) {
+    if (book.path.isEmpty || book.filename.isEmpty) return 0;
+    final file = File(join(dirname(db.path), joinAll(book.path.split('/')),
+        '${book.filename}.${book.format.toLowerCase()}'));
+    try {
+      return file.existsSync() ? file.lengthSync() : 0;
+    } catch (_) {
+      return 0;
+    }
   }
+
+  /// books.pubdate: Calibre's "undefined" date when the book has none.
+  String _pubdate(Book book) =>
+      book.pubdate.trim().isEmpty ? Calibre.undefinedDate : book.pubdate;
 
   String _newUuid() {
     final rnd = Random.secure();
@@ -236,7 +267,17 @@ class BookDatasource {
       books.series_index AS ${Bookkeys.series_index.name},
       COALESCE((SELECT group_concat(name, ', ') FROM books_tags_link btl
                 JOIN tags ON tags.id = btl.tag
-                WHERE btl.book = books.id), '') AS ${Bookkeys.tags.name}
+                WHERE btl.book = books.id), '') AS ${Bookkeys.tags.name},
+      CASE WHEN books.pubdate IS NULL OR books.pubdate < '0102'
+           THEN '' ELSE books.pubdate END AS ${Bookkeys.pubdate.name},
+      COALESCE((SELECT group_concat(languages.lang_code, ', ')
+                FROM books_languages_link bll
+                JOIN languages ON languages.id = bll.lang_code
+                WHERE bll.book = books.id), '') AS ${Bookkeys.languages.name},
+      COALESCE((SELECT group_concat(type || ':' || val, ', ') FROM identifiers
+                WHERE identifiers.book = books.id
+                  AND type NOT IN ('price', 'cover_image')), '')
+          AS ${Bookkeys.identifiers.name}
     FROM books
   ''';
 
@@ -290,7 +331,8 @@ class BookDatasource {
         db, 'publishers', 'books_publishers_link', 'publisher', old);
   }
 
-  Future<void> _setSeries(DatabaseExecutor db, int bookId, String series) async {
+  Future<void> _setSeries(DatabaseExecutor db, int bookId, String series,
+      [List<String> languages = const []]) async {
     final name = series.trim();
     final old = await _linkedIds(db, 'books_series_link', 'series', bookId);
     await db.delete('books_series_link', where: 'book = ?', whereArgs: [bookId]);
@@ -306,7 +348,7 @@ class BookDatasource {
         await db.execute(DropTriggers.series_insert_trg_drop.name);
         try {
           id = await db.insert('series',
-              {'name': name, 'sort': _titleSort(name), 'link': ''});
+              {'name': name, 'sort': _titleSort(name, languages), 'link': ''});
         } finally {
           await db.execute(Triggers.series_insert_trg.name);
         }
@@ -327,14 +369,75 @@ class BookDatasource {
     await _deleteUnused(db, 'tags', 'books_tags_link', 'tag', old);
   }
 
+  /// Links the book to [codes] (Calibre language codes, in order).
+  Future<void> _setLanguages(
+      DatabaseExecutor db, int bookId, List<String> codes) async {
+    final old = await _linkedIds(db, 'books_languages_link', 'lang_code', bookId);
+    await db.delete('books_languages_link',
+        where: 'book = ?', whereArgs: [bookId]);
+    var order = 0;
+    for (final code in codes.toSet()) {
+      final id = await _getOrCreateId(
+          db, 'languages', 'lang_code', code, {'lang_code': code, 'link': ''});
+      await db.insert(
+        'books_languages_link',
+        {'book': bookId, 'lang_code': id, 'item_order': order++},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await _deleteUnused(
+        db, 'languages', 'books_languages_link', 'lang_code', old);
+  }
+
+  /// Replaces the book's Calibre identifiers (isbn, goodreads, ...). The
+  /// app's own 'price' / 'cover_image' rows are left alone.
+  Future<void> _setIdentifiers(
+      DatabaseExecutor db, int bookId, Map<String, String> identifiers) async {
+    await db.delete('identifiers',
+        where: "book = ? AND type NOT IN ('price', 'cover_image')",
+        whereArgs: [bookId]);
+    for (final entry in identifiers.entries) {
+      if (entry.key == 'price' || entry.key == 'cover_image') continue;
+      await db.insert(
+        'identifiers',
+        {'book': bookId, 'type': entry.key, 'val': entry.value},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  /// The app's own 'price' / 'cover_image' identifier rows: written only
+  /// when they have a value (Calibre shows every row as an identifier).
+  /// The bundled placeholder cover is never stored.
+  Future<void> _setAppIdentifiers(
+      DatabaseExecutor db, int bookId, Book book) async {
+    await db.delete('identifiers',
+        where: "book = ? AND type IN ('price', 'cover_image')",
+        whereArgs: [bookId]);
+    final values = {
+      'price': book.price.trim(),
+      'cover_image':
+          book.image.trim() == 'assets/cover.png' ? '' : book.image.trim(),
+    };
+    for (final entry in values.entries) {
+      if (entry.value.isEmpty) continue;
+      await db.insert(
+        'identifiers',
+        {'book': bookId, 'type': entry.key, 'val': entry.value},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
   Future<int> addBook(Book book) async {
     final db = await database;
-    final sort = _titleSort(book.title);
+    final sort = _titleSort(book.title, book.languageList);
     final authors = _splitAuthors(book.author);
-    final authorSort = authors.join(' & ');
+    final authorSort = _authorSort(authors);
     final uuid = _newUuid();
+    final now = Calibre.now();
 
-    return db.transaction<int>((txn) async {
+    final newId = await db.transaction<int>((txn) async {
       // books_insert_trg calls title_sort()/uuid4() - neither exists in
       // plain sqlite, so drop it for this insert (sort/uuid are already
       // computed above) and restore it straight after.
@@ -349,7 +452,9 @@ class BookDatasource {
           'path': book.path,
           'uuid': uuid,
           'has_cover': _hasCover(db, book) ? 1 : 0,
-          'last_modified': book.last_modified,
+          'timestamp': now,
+          'pubdate': _pubdate(book),
+          'last_modified': now,
           'series_index': book.series_index,
         });
       } finally {
@@ -360,8 +465,8 @@ class BookDatasource {
         'data',
         {
           'book': bookId,
-          'format': book.format,
-          'uncompressed_size': 0,
+          'format': _format(book),
+          'uncompressed_size': _fileSize(db, book),
           'name': book.filename,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
@@ -376,12 +481,13 @@ class BookDatasource {
       }
 
       // books_pages_link_create_trigger already created a pages=0 row.
-      await txn.update('books_pages_link', {'pages': book.pages},
+      // needs_scan=1 asks Calibre to count the pages with its own method.
+      await txn.update('books_pages_link', {'pages': book.pages, 'needs_scan': 1},
           where: 'book = ?', whereArgs: [bookId]);
 
       for (final name in authors) {
-        final authorId = await _getOrCreateId(
-            txn, 'authors', 'name', name, {'name': name, 'sort': name, 'link': ''});
+        final authorId =
+            await _getOrCreateId(txn, 'authors', 'name', name, _authorRow(name));
         await _linkBook(txn, 'books_authors_link', bookId, 'author', authorId);
       }
 
@@ -393,27 +499,71 @@ class BookDatasource {
             txn, 'books_ratings_link', bookId, 'rating', ratingId);
       }
 
-      if (book.price.isNotEmpty) {
-        await txn.insert(
-          'identifiers',
-          {'book': bookId, 'type': 'price', 'val': book.price},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      if (book.image.isNotEmpty) {
-        await txn.insert(
-          'identifiers',
-          {'book': bookId, 'type': 'cover_image', 'val': book.image},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-
+      await _setAppIdentifiers(txn, bookId, book);
+      await _setIdentifiers(txn, bookId, book.identifierMap);
+      await _setLanguages(txn, bookId, book.languageList);
       await _setPublisher(txn, bookId, book.publisher);
-      await _setSeries(txn, bookId, book.series);
+      await _setSeries(txn, bookId, book.series, book.languageList);
       await _setTags(txn, bookId, book.tags);
 
       return bookId;
     });
+    await _writeOpf(db, newId);
+    return newId;
+  }
+
+  /// Writes `metadata.opf` into the book's folder, as Calibre keeps it
+  /// (used by Calibre's "Restore database"). Best effort: a failure here
+  /// never fails the save. Skipped while the book has no folder yet.
+  Future<void> _writeOpf(Database db, int bookId) async {
+    try {
+      final rows = await db.rawQuery('''
+        SELECT title, sort, author_sort, uuid, timestamp, pubdate, path,
+               series_index, has_cover
+        FROM books WHERE id = ?''', [bookId]);
+      if (rows.isEmpty) return;
+      final row = rows.first;
+      final path = (row['path'] as String?) ?? '';
+      if (path.isEmpty) return;
+      final folder =
+          Directory(join(dirname(db.path), joinAll(path.split('/'))));
+      if (!await folder.exists()) return;
+
+      final book = await getBook(bookId);
+      if (book == null) return;
+      final authors = await db.rawQuery('''
+        SELECT authors.name AS name, authors.sort AS sort
+        FROM books_authors_link bal JOIN authors ON authors.id = bal.author
+        WHERE bal.book = ? ORDER BY bal.id''', [bookId]);
+
+      final opf = OpfWriter.write(OpfBook(
+        id: bookId,
+        uuid: (row['uuid'] as String?) ?? '',
+        title: (row['title'] as String?) ?? book.title,
+        titleSort: (row['sort'] as String?) ?? '',
+        authors: [
+          for (final a in authors)
+            OpfAuthor((a['name'] as String?) ?? '', (a['sort'] as String?) ?? ''),
+        ],
+        authorSort: (row['author_sort'] as String?) ?? '',
+        timestamp: (row['timestamp'] as String?) ?? '',
+        pubdate: (row['pubdate'] as String?) ?? '',
+        publisher: book.publisher,
+        description: book.description,
+        series: book.series,
+        seriesIndex: (row['series_index'] as num?)?.toDouble() ?? 1.0,
+        rating: book.rating.round(),
+        tags: book.tagList,
+        languages: book.languageList,
+        identifiers: book.identifierMap,
+        hasCover: (row['has_cover'] as int? ?? 0) != 0,
+      ));
+      await File(join(folder.path, OpfWriter.fileName))
+          .writeAsString(opf, flush: true);
+    } catch (e) {
+      // ignore: avoid_print
+      print('metadata.opf not written for book $bookId: $e');
+    }
   }
 
   Future<Book?> getBook(int id) async {
@@ -449,11 +599,11 @@ class BookDatasource {
     final db = await database;
     if (book.id == null) return 0;
     final bookId = book.id!;
-    final sort = _titleSort(book.title);
+    final sort = _titleSort(book.title, book.languageList);
     final authors = _splitAuthors(book.author);
-    final authorSort = authors.join(' & ');
+    final authorSort = _authorSort(authors);
 
-    return db.transaction<int>((txn) async {
+    final updated = await db.transaction<int>((txn) async {
       // books_update_trg also calls title_sort() - same drop/recreate
       // dance as addBook, for the same reason.
       await txn.execute(DropTriggers.books_books_update_trg_drop.name);
@@ -467,7 +617,8 @@ class BookDatasource {
             'author_sort': authorSort,
             'path': book.path,
             'has_cover': _hasCover(db, book) ? 1 : 0,
-            'last_modified': book.last_modified,
+            'pubdate': _pubdate(book),
+            'last_modified': Calibre.now(),
             'series_index': book.series_index,
           },
           where: 'id = ?',
@@ -477,18 +628,22 @@ class BookDatasource {
         await txn.execute(Triggers.books_update_trg.name);
       }
 
-      await txn.update(
+      // A Calibre book can have several formats (one data row each). They
+      // all share data.name; the format/size of the one this app shows
+      // is refreshed, the others are left as they are.
+      await txn.update('data', {'name': book.filename},
+          where: 'book = ?', whereArgs: [bookId]);
+      final updatedFormats = await txn.update(
         'data',
-        {'format': book.format, 'name': book.filename},
-        where: 'book = ?',
-        whereArgs: [bookId],
+        {'format': _format(book), 'uncompressed_size': _fileSize(db, book)},
+        where: 'book = ? AND format = ? COLLATE NOCASE',
+        whereArgs: [bookId, _format(book)],
       );
-      if (await txn.query('data', where: 'book = ?', whereArgs: [bookId])
-          .then((rows) => rows.isEmpty)) {
+      if (updatedFormats == 0 && _format(book).isNotEmpty) {
         await txn.insert('data', {
           'book': bookId,
-          'format': book.format,
-          'uncompressed_size': 0,
+          'format': _format(book),
+          'uncompressed_size': _fileSize(db, book),
           'name': book.filename,
         });
       }
@@ -508,13 +663,18 @@ class BookDatasource {
           where: 'book = ?', whereArgs: [bookId]);
 
       // Authors can change on update - replace the link set entirely.
+      final oldAuthors =
+          await _linkedIds(txn, 'books_authors_link', 'author', bookId);
       await txn.delete('books_authors_link',
           where: 'book = ?', whereArgs: [bookId]);
       for (final name in authors) {
-        final authorId = await _getOrCreateId(
-            txn, 'authors', 'name', name, {'name': name, 'sort': name, 'link': ''});
+        final authorId =
+            await _getOrCreateId(txn, 'authors', 'name', name, _authorRow(name));
         await _linkBook(txn, 'books_authors_link', bookId, 'author', authorId);
       }
+      // Like Calibre: an author no book uses any more is removed.
+      await _deleteUnused(
+          txn, 'authors', 'books_authors_link', 'author', oldAuthors);
 
       await txn.delete('books_ratings_link',
           where: 'book = ?', whereArgs: [bookId]);
@@ -526,23 +686,17 @@ class BookDatasource {
             txn, 'books_ratings_link', bookId, 'rating', ratingId);
       }
 
-      await txn.insert(
-        'identifiers',
-        {'book': bookId, 'type': 'price', 'val': book.price},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      await txn.insert(
-        'identifiers',
-        {'book': bookId, 'type': 'cover_image', 'val': book.image},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-
+      await _setAppIdentifiers(txn, bookId, book);
+      await _setIdentifiers(txn, bookId, book.identifierMap);
+      await _setLanguages(txn, bookId, book.languageList);
       await _setPublisher(txn, bookId, book.publisher);
-      await _setSeries(txn, bookId, book.series);
+      await _setSeries(txn, bookId, book.series, book.languageList);
       await _setTags(txn, bookId, book.tags);
 
       return result;
     });
+    await _writeOpf(db, bookId);
+    return updated;
   }
 
   Future<int> deleteBook(Book book) async {
@@ -562,6 +716,10 @@ class BookDatasource {
       final series =
           await _linkedIds(txn, 'books_series_link', 'series', bookId);
       final tags = await _linkedIds(txn, 'books_tags_link', 'tag', bookId);
+      final languages = await _linkedIds(
+          txn, 'books_languages_link', 'lang_code', bookId);
+      final authors =
+          await _linkedIds(txn, 'books_authors_link', 'author', bookId);
 
       final result =
           await txn.delete('books', where: 'id = ?', whereArgs: [bookId]);
@@ -570,6 +728,10 @@ class BookDatasource {
           txn, 'publishers', 'books_publishers_link', 'publisher', publishers);
       await _deleteUnused(txn, 'series', 'books_series_link', 'series', series);
       await _deleteUnused(txn, 'tags', 'books_tags_link', 'tag', tags);
+      await _deleteUnused(
+          txn, 'languages', 'books_languages_link', 'lang_code', languages);
+      await _deleteUnused(
+          txn, 'authors', 'books_authors_link', 'author', authors);
       return result;
     });
   }
@@ -618,6 +780,20 @@ class BookDatasource {
     await batch.commit(noResult: true);
 
     await _createLibraryFolders(dirname(db.path));
+  }
+
+  /// Older versions of this app stored the bundled placeholder cover
+  /// ('assets/cover.png') and empty prices as identifiers of every book -
+  /// Calibre shows those as real identifiers. Remove them (cheap, runs
+  /// once per open, does nothing when there are none).
+  Future<void> _removeLegacyIdentifiers(Database db) async {
+    try {
+      await db.delete('identifiers',
+          where: "(type = 'cover_image' AND val IN ('', 'assets/cover.png')) "
+              "OR (type = 'price' AND TRIM(val) = '')");
+    } catch (e) {
+      // e.g. a read-only library - not worth failing the open for.
+    }
   }
 
   /// Repairs a library created by an older Android build, where only the

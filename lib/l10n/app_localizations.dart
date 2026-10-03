@@ -644,6 +644,24 @@ abstract class AppLocalizations {
   /// **'Dark'**
   String get readerThemeDark;
 
+  /// No description provided for @readerThemeAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get readerThemeAuto;
+
+  /// No description provided for @readerDarkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark mode'**
+  String get readerDarkMode;
+
+  /// No description provided for @readerLightMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Light mode'**
+  String get readerLightMode;
+
   /// No description provided for @readerPreviousChapter.
   ///
   /// In en, this message translates to:
@@ -781,6 +799,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry'**
   String get retry;
+
+  /// No description provided for @continueReading.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue reading'**
+  String get continueReading;
+
+  /// No description provided for @noRecentBook.
+  ///
+  /// In en, this message translates to:
+  /// **'No book opened yet'**
+  String get noRecentBook;
+
+  /// No description provided for @published.
+  ///
+  /// In en, this message translates to:
+  /// **'Published'**
+  String get published;
+
+  /// No description provided for @dateNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get dateNotSet;
+
+  /// No description provided for @clearDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear date'**
+  String get clearDate;
+
+  /// No description provided for @languages.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages'**
+  String get languages;
+
+  /// No description provided for @languagesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'eng, hun'**
+  String get languagesHint;
+
+  /// No description provided for @identifiers.
+  ///
+  /// In en, this message translates to:
+  /// **'Identifiers'**
+  String get identifiers;
+
+  /// No description provided for @identifiersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'isbn:9781234567897, goodreads:123'**
+  String get identifiersHint;
+
+  /// No description provided for @unknownLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown language: {value}'**
+  String unknownLanguage(String value);
+
+  /// No description provided for @invalidIdentifier.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid identifier: {value}'**
+  String invalidIdentifier(String value);
 }
 
 class _AppLocalizationsDelegate

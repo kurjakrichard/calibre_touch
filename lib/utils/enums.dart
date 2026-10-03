@@ -17,7 +17,10 @@ enum Bookkeys {
   publisher(name: 'publisher'),
   series(name: 'series'),
   series_index(name: 'series_index'),
-  tags(name: 'tags');
+  tags(name: 'tags'),
+  pubdate(name: 'pubdate'),
+  languages(name: 'languages'),
+  identifiers(name: 'identifiers');
 
   const Bookkeys({
     required this.name,
@@ -490,4 +493,4 @@ END '''),
   });
 
   final String name;
-}
+}

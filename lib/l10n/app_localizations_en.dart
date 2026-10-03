@@ -310,6 +310,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get readerThemeDark => 'Dark';
 
   @override
+  String get readerThemeAuto => 'Auto';
+
+  @override
+  String get readerDarkMode => 'Dark mode';
+
+  @override
+  String get readerLightMode => 'Light mode';
+
+  @override
   String get readerPreviousChapter => 'Previous chapter';
 
   @override
@@ -395,4 +404,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get retry => 'Retry';
+
+  @override
+  String get continueReading => 'Continue reading';
+
+  @override
+  String get noRecentBook => 'No book opened yet';
+
+  @override
+  String get published => 'Published';
+
+  @override
+  String get dateNotSet => 'Not set';
+
+  @override
+  String get clearDate => 'Clear date';
+
+  @override
+  String get languages => 'Languages';
+
+  @override
+  String get languagesHint => 'eng, hun';
+
+  @override
+  String get identifiers => 'Identifiers';
+
+  @override
+  String get identifiersHint => 'isbn:9781234567897, goodreads:123';
+
+  @override
+  String unknownLanguage(String value) {
+    return 'Unknown language: $value';
+  }
+
+  @override
+  String invalidIdentifier(String value) {
+    return 'Invalid identifier: $value';
+  }
 }

@@ -29,6 +29,98 @@ enum ReaderTheme {
 
   Brightness get brightness =>
       this == ReaderTheme.dark ? Brightness.dark : Brightness.light;
+
+  /// SharedPreferences key shared by the EPUB and PDF readers.
+  static const prefKey = 'readerTheme';
+  static const _autoValue = 'auto';
+
+  /// The saved choice: a fixed theme, or null for "Auto" (follow the app's
+  /// light/dark theme). Nothing saved yet = Auto.
+  static ReaderTheme? loadChoice(SharedPreferences prefs) {
+    final saved = prefs.getString(prefKey);
+    for (final theme in ReaderTheme.values) {
+      if (theme.name == saved) return theme;
+    }
+    return null;
+  }
+
+  static void saveChoice(SharedPreferences prefs, ReaderTheme? choice) =>
+      prefs.setString(prefKey, choice?.name ?? _autoValue);
+
+  /// The theme to show for [choice]; Auto follows the app's theme mode
+  /// ([modeProvider] value).
+  static ReaderTheme resolve(ReaderTheme? choice, String appMode) =>
+      choice ?? (appMode == 'dark' ? ReaderTheme.dark : ReaderTheme.light);
+
+  static String label(AppLocalizations l10n, ReaderTheme? choice) {
+    switch (choice) {
+      case null:
+        return l10n.readerThemeAuto;
+      case ReaderTheme.light:
+        return l10n.readerThemeLight;
+      case ReaderTheme.sepia:
+        return l10n.readerThemeSepia;
+      case ReaderTheme.dark:
+        return l10n.readerThemeDark;
+    }
+  }
+}
+
+/// Auto / Light / Sepia / Dark chips for the readers' settings sheets.
+class ReaderThemeChips extends StatelessWidget {
+  const ReaderThemeChips({
+    super.key,
+    required this.choice,
+    required this.onChanged,
+  });
+
+  final ReaderTheme? choice;
+  final ValueChanged<ReaderTheme?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final theme in <ReaderTheme?>[null, ...ReaderTheme.values])
+          ChoiceChip(
+            avatar: theme == null ? const Icon(Icons.brightness_auto) : null,
+            label: Text(ReaderTheme.label(l10n, theme)),
+            selected: choice == theme,
+            onSelected: (_) => onChanged(theme),
+          ),
+      ],
+    );
+  }
+}
+
+/// Top bar button that switches the reader between dark and light in one
+/// tap (a fixed choice; Auto can be picked again in the settings sheet).
+class ReaderDarkModeButton extends StatelessWidget {
+  const ReaderDarkModeButton({
+    super.key,
+    required this.theme,
+    required this.onChanged,
+  });
+
+  /// The theme being shown.
+  final ReaderTheme theme;
+  final ValueChanged<ReaderTheme> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final isDark = theme == ReaderTheme.dark;
+    return IconButton(
+      tooltip: isDark ? l10n.readerLightMode : l10n.readerDarkMode,
+      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode,
+          color: theme.text),
+      onPressed: () =>
+          onChanged(isDark ? ReaderTheme.light : ReaderTheme.dark),
+    );
+  }
 }
 
 /// Full-screen EPUB reader for the selected book.
@@ -64,7 +156,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     with WidgetsBindingObserver {
   static const _fontSizeKey = 'readerFontSize';
   static const _lineHeightKey = 'readerLineHeight';
-  static const _themeKey = 'readerTheme';
   static const double _maxTextWidth = 760;
   static const String _nextChapterMarker = 'calibre-touch-next-chapter';
 
@@ -86,7 +177,18 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
   bool _showControls = false;
   double _fontSize = 18;
   double _lineHeight = 1.5;
-  ReaderTheme _theme = ReaderTheme.light;
+  /// Picked page colour; null = Auto (follows the app's light/dark theme).
+  ReaderTheme? _themeChoice;
+
+  /// The app's theme mode, refreshed in [build].
+  String _appMode = 'light';
+
+  ReaderTheme get _theme => ReaderTheme.resolve(_themeChoice, _appMode);
+
+  void _setThemeChoice(ReaderTheme? choice) {
+    setState(() => _themeChoice = choice);
+    ReaderTheme.saveChoice(_prefs, choice);
+  }
 
   bool get _isMobile => Platform.isAndroid || Platform.isIOS;
 
@@ -102,12 +204,17 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
         '${_book?.path}/${_book?.filename}';
     _fontSize = prefs.getDouble(_fontSizeKey) ?? _fontSize;
     _lineHeight = prefs.getDouble(_lineHeightKey) ?? _lineHeight;
-    _theme = ReaderTheme.values.firstWhere(
-      (t) => t.name == prefs.getString(_themeKey),
-      orElse: () => ReaderTheme.light,
-    );
+    _themeChoice = ReaderTheme.loadChoice(prefs);
+    _appMode = ref.read(modeProvider);
 
     final book = _book;
+    // Remember it for the drawer's "Continue reading" button (after this
+    // frame: providers can't be modified while the widget tree builds).
+    if (book != null && ReaderPage.canRead(book)) {
+      Future.microtask(() {
+        if (mounted) ref.read(lastReadBookProvider.notifier).set(book);
+      });
+    }
     if (book != null && ReaderPage.canRead(book)) {
       _load(book);
     } else {
@@ -305,8 +412,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
                           child: Slider(
                             value: _fontSize,
                             min: 12,
-                            max: 32,
-                            divisions: 20,
+                            max: 40,
+                            divisions: 28,
                             label: _fontSize.round().toString(),
                             onChanged: (v) => update(() => _fontSize = v),
                             onChangeEnd: (v) =>
@@ -330,19 +437,12 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
                     const SizedBox(height: 8),
                     Text(l10n.readerTheme, style: labelStyle),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final theme in ReaderTheme.values)
-                          ChoiceChip(
-                            label: Text(_themeName(l10n, theme)),
-                            selected: _theme == theme,
-                            onSelected: (_) {
-                              update(() => _theme = theme);
-                              _prefs.setString(_themeKey, theme.name);
-                            },
-                          ),
-                      ],
+                    ReaderThemeChips(
+                      choice: _themeChoice,
+                      onChanged: (choice) {
+                        _setThemeChoice(choice);
+                        setSheetState(() {});
+                      },
                     ),
                   ],
                 ),
@@ -352,17 +452,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
         },
       ),
     );
-  }
-
-  String _themeName(AppLocalizations l10n, ReaderTheme theme) {
-    switch (theme) {
-      case ReaderTheme.light:
-        return l10n.readerThemeLight;
-      case ReaderTheme.sepia:
-        return l10n.readerThemeSepia;
-      case ReaderTheme.dark:
-        return l10n.readerThemeDark;
-    }
   }
 
   // ---- UI ----
@@ -388,6 +477,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
 
   @override
   Widget build(BuildContext context) {
+    // Auto page colour follows the app theme, also if it changes meanwhile.
+    _appMode = ref.watch(modeProvider);
     final l10n = context.l10n;
     final book = _book;
     final document = _document;
@@ -641,6 +732,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
                     icon: const Icon(Icons.toc),
                     onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                   ),
+                ReaderDarkModeButton(
+                  theme: _theme,
+                  onChanged: _setThemeChoice,
+                ),
                 IconButton(
                   tooltip: l10n.readerSettings,
                   icon: const Icon(Icons.text_fields),

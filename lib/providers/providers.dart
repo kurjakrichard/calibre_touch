@@ -7,3 +7,4 @@ export 'path_provider.dart';
 export 'view_provider.dart';
 export 'locale_provider.dart';
 export 'reader_preference_provider.dart';
+export 'last_read_book_provider.dart';

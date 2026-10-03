@@ -43,6 +43,7 @@ dependencies:
   go_router: ^17.2.3
   google_fonts: ^6.2.1
   html: ^0.15.5
+  image: ^4.5.0 # cover.jpg: decode EPUB covers, encode JPEG
   intl: any # version pinned by flutter_localizations
   open_filex: ^4.3.2
   path_provider: ^2.1.4
@@ -56,17 +57,27 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.16
   sqlite3: ^2.1.0
   xml: ">=6.5.0 <8.0.0" # EPUB reader: container.xml, OPF, NCX
+  flutter_native_splash: ^2.4.7 # used at runtime (preserve/remove in main.dart / app.dart)
 
  
 
+# Native splash. After changing this section run:
+#   dart run flutter_native_splash:create
+# (it generates the Android launch_background / styles / splash images).
 flutter_native_splash:
-    android: true
+  android: true
+  ios: false
+  web: false
+  color: "#1C2F43"
+  image: assets/logo.png
+  fullscreen: true
+
+  # Android 12+ only shows the image inside a circle (2/3 of the icon),
+  # so it gets a padded copy of the logo.
+  android_12:
     color: "#1C2F43"
-    image: assets/logo.png
-    
-    android_12:
-      color: "#1C2F43"
-      image: assets/logo.png
+    image: assets/splash_android12.png
+    icon_background_color: "#1C2F43"
 
 
 dev_dependencies:
@@ -79,7 +90,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
-  flutter_native_splash: ^2.4.7 
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

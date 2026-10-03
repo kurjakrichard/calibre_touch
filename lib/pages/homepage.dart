@@ -1,12 +1,10 @@
 import 'package:file_picker/file_picker.dart';
-// ignore: depend_on_referenced_packages
-import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:remove_diacritic/remove_diacritic.dart';
 import '../data/data_export.dart';
 import '../l10n/l10n.dart';
+import '../metadata/metadata.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import '../widgets/widgets.dart';
@@ -27,7 +25,6 @@ class _HomeState extends ConsumerState<HomePage> {
   Book? selectedBook;
   // ignore: unused_field
   bool _isLoading = false;
-  FileService fileService = FileService();
   var allowedExtensions = ['pdf', 'odt', 'epub', 'mobi'];
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
@@ -36,6 +33,11 @@ class _HomeState extends ConsumerState<HomePage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Enter / search button: filter the books.
+  void _searchNow(String value) {
+    ref.read(booksProvider.notifier).search(value);
   }
 
   @override
@@ -47,10 +49,10 @@ class _HomeState extends ConsumerState<HomePage> {
       drawer: const DrawerWidget(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          Book? newBook = await pickFile();
-          if (newBook != null) {
+          final picked = await pickFile();
+          if (picked != null) {
             // ignore: use_build_context_synchronously
-            _insertBook(newBook, context);
+            _importBook(picked.path, picked.metadata, context);
           }
         },
         child: const Icon(Icons.add),
@@ -76,8 +78,7 @@ class _HomeState extends ConsumerState<HomePage> {
               textInputAction: TextInputAction.search,
               // Search only when typing is finished (Enter / search key),
               // not on every keystroke.
-              onSubmitted: (value) =>
-                  ref.read(booksProvider.notifier).search(value),
+              onSubmitted: _searchNow,
               cursorColor: Colors.white,
               style: Theme.of(context)
                   .textTheme
@@ -88,9 +89,7 @@ class _HomeState extends ConsumerState<HomePage> {
                 prefixIcon: IconButton(
                   tooltip: l10n.search,
                   icon: const Icon(Icons.search, color: Colors.white),
-                  onPressed: () => ref
-                      .read(booksProvider.notifier)
-                      .search(_searchController.text),
+                  onPressed: () => _searchNow(_searchController.text),
                 ),
                 hintText: l10n.searchBook,
                 hintStyle: const TextStyle(color: Colors.white70),
@@ -160,13 +159,19 @@ class _HomeState extends ConsumerState<HomePage> {
     return BookViewBody(count: count);
   }
 
-  Future<void> _insertBook(Book book, BuildContext context) async {
+  /// Adds the picked file to the library (see BookNotifier.importFile).
+  Future<void> _importBook(
+      String sourcePath, BookMetadata metadata, BuildContext context) async {
     final l10n = context.l10n;
-    final id = await ref.read(booksProvider.notifier).addBook(book);
-    if (id == null) {
-      // addBook() swallows DB errors and returns null, so report it here.
+    final int id;
+    try {
+      id = await ref
+          .read(booksProvider.notifier)
+          .importFile(sourcePath, metadata);
+    } catch (e, st) {
+      debugPrint('Import failed: $e\n$st');
       if (context.mounted) {
-        AppAlerts.displaySnackbar(context, l10n.couldNotSaveBook);
+        AppAlerts.displaySnackbar(context, l10n.importFailed('$e'));
       }
       return;
     }
@@ -201,7 +206,9 @@ class _HomeState extends ConsumerState<HomePage> {
     return result ?? false;
   }
 
-  Future<Book?> pickFile() async {
+  /// Lets the user pick a book file and reads its metadata (title,
+  /// authors, cover, ...). Null if cancelled or a duplicate was declined.
+  Future<({String path, BookMetadata metadata})?> pickFile() async {
     setState(() => _isLoading = true);
     try {
       final picked = await FilePicker.pickFile(
@@ -216,44 +223,19 @@ class _HomeState extends ConsumerState<HomePage> {
       }
       debugPrint('Picked: ${picked.name} -> $sourcePath');
 
-      final title = p.basenameWithoutExtension(picked.name);
-      final format = p.extension(picked.name).replaceFirst('.', '');
+      final metadata = await MetadataReaders.read(sourcePath);
+      debugPrint('Metadata: $metadata');
 
-      final existing =
-          await ref.read(booksProvider.notifier).getTitlesByTitle(title);
+      final existing = await ref
+          .read(booksProvider.notifier)
+          .getTitlesByTitle(metadata.title);
       if (existing != null) {
         if (!mounted) return null;
         final add = await _confirmDuplicate(); // now WAITS for the answer
         if (!add) return null;
       }
 
-      const author = 'Unknown author';
-      final filename = '${removeDiacritics(author)} - ${removeDiacritics(title)}';
-      final path = '${removeDiacritics(author)}/${removeDiacritics(title)}';
-
-      final book = Book(
-        author: author,
-        title: title,
-        description: '',
-        image: 'assets/cover.png', 
-        last_modified: '',
-        path: path,
-        filename: filename,
-        format: format,
-        pages: 0,
-        price: '',
-        rating: 0,
-      );
-
-      final target = await fileService.bookFilePath(
-          path: path,
-          filename: filename,
-          format: format,
-          customPath: ref.read(pathProvider));
-      debugPrint('Copying to: $target');
-      await fileService.copyFile(oldpath: sourcePath, newpath: target);
-
-      return book; // only returned if the file was really copied
+      return (path: sourcePath, metadata: metadata);
     } catch (e, st) {
       debugPrint('Import failed: $e\n$st');
       if (mounted) {

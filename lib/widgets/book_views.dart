@@ -30,14 +30,11 @@ class BookViewBody extends ConsumerWidget {
       }
       return LibraryEmptyView(state: state);
     }
-    switch (ref.watch(bookViewProvider)) {
-      case BookView.grid:
-        return GridList(count: count);
-      case BookView.flutibreList:
-        return const FlutibreListView();
-      case BookView.proTable:
-        return const ProTableView();
-    }
+    return switch (ref.watch(bookViewProvider)) {
+      BookView.grid => GridList(count: count),
+      BookView.list => const FlutibreListView(),
+      BookView.table => const ProTableView(),
+    };
   }
 }
 
@@ -171,9 +168,9 @@ String bookViewLabel(AppLocalizations l10n, BookView view) {
   switch (view) {
     case BookView.grid:
       return l10n.viewCovers;
-    case BookView.flutibreList:
+    case BookView.list:
       return l10n.viewList;
-    case BookView.proTable:
+    case BookView.table:
       return l10n.viewTable;
   }
 }
@@ -295,6 +292,10 @@ class ProTableView extends StatelessWidget {
           compare: BookColumn.compareSeries),
       BookColumn(l10n.publisher, 160, (b) => b.publisher),
       BookColumn(l10n.tags, 200, (b) => b.tags),
+      BookColumn(l10n.published, 110, (b) => BookColumn.formatPubdate(b.pubdate),
+          compare: (a, b) => a.pubdate.compareTo(b.pubdate)),
+      BookColumn(l10n.languages, 90, (b) => b.languages),
+      BookColumn(l10n.identifiers, 220, (b) => b.identifiers),
       BookColumn(l10n.format, 80, (b) => b.format.toUpperCase()),
       BookColumn(l10n.rating, 90, (b) => BookColumn.formatRating(b.rating),
           compare: (a, b) => a.rating.compareTo(b.rating)),
@@ -347,6 +348,13 @@ class BookColumn {
     return date == null ? s : DateFormat.yMMMd().format(date);
   }
 
+  /// books.pubdate (Calibre timestamp, '' = none) as a local date.
+  static String formatPubdate(String s) {
+    if (s.isEmpty) return '';
+    final date = DateTime.tryParse(s);
+    return date == null ? '' : DateFormat.yMMMd().format(date.toLocal());
+  }
+
   static int compareDates(Book a, Book b) {
     final da = parseDate(a.last_modified);
     final db = parseDate(b.last_modified);
@@ -388,6 +396,32 @@ class _BookTableState extends ConsumerState<BookTable> {
   int? _sortColumn;
   bool _ascending = true;
 
+  /// Last sort result, reused while the books and the sort don't change
+  /// (sorting thousands of books on every rebuild - e.g. selecting a row -
+  /// is noticeable, especially by date).
+  List<Book>? _sortedSource;
+  int? _sortedColumn;
+  bool? _sortedAscending;
+  List<Book>? _sorted;
+
+  List<Book> _sortedBooks(List<Book> books, List<BookColumn> columns) {
+    final sortColumn = _sortColumn;
+    if (sortColumn == null) return books;
+    if (_sorted != null &&
+        identical(_sortedSource, books) &&
+        _sortedColumn == sortColumn &&
+        _sortedAscending == _ascending) {
+      return _sorted!;
+    }
+    final column = columns[sortColumn];
+    final ascending = _ascending;
+    _sortedSource = books;
+    _sortedColumn = sortColumn;
+    _sortedAscending = ascending;
+    return _sorted = [...books]
+      ..sort((a, b) => ascending ? column.sort(a, b) : column.sort(b, a));
+  }
+
   void _onHeaderTap(int index) {
     setState(() {
       if (_sortColumn == index) {
@@ -403,13 +437,8 @@ class _BookTableState extends ConsumerState<BookTable> {
   Widget build(BuildContext context) {
     final columns = widget.columns;
     final selectedId = ref.watch(selectedBookProvider.select((b) => b?.id));
-    var books = ref.watch(booksProvider).visibleBooks;
-    final sortColumn = _sortColumn;
-    if (sortColumn != null) {
-      final column = columns[sortColumn];
-      books = [...books]..sort((a, b) =>
-          _ascending ? column.sort(a, b) : column.sort(b, a));
-    }
+    final books =
+        _sortedBooks(ref.watch(booksProvider).visibleBooks, columns);
 
     final theme = Theme.of(context);
     final headerStyle = theme.textTheme.titleSmall

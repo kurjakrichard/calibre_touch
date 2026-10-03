@@ -91,6 +91,9 @@
   "readerThemeLight": "Világos",
   "readerThemeSepia": "Szépia",
   "readerThemeDark": "Sötét",
+  "readerThemeAuto": "Automatikus",
+  "readerDarkMode": "Sötét mód",
+  "readerLightMode": "Világos mód",
   "readerPreviousChapter": "Előző fejezet",
   "readerNextChapter": "Következő fejezet",
   "readerChapterOf": "{current}. fejezet / {total}",
@@ -113,5 +116,16 @@
   "libraryNeedsStorage": "A Calibre Touch nem fér hozzá ehhez a mappához. Engedélyezd a „Hozzáférés az összes fájlhoz” jogosultságot a könyvek megjelenítéséhez.",
   "libraryLoadError": "Nem sikerült megnyitni a könyvtárat: {error}",
   "grantAccess": "Hozzáférés engedélyezése",
-  "retry": "Újra"
+  "retry": "Újra",
+  "continueReading": "Olvasás folytatása",
+  "noRecentBook": "Még nem nyitottál meg könyvet",
+  "published": "Megjelenés",
+  "dateNotSet": "Nincs megadva",
+  "clearDate": "Dátum törlése",
+  "languages": "Nyelvek",
+  "languagesHint": "hun, eng",
+  "identifiers": "Azonosítók",
+  "identifiersHint": "isbn:9781234567897, goodreads:123",
+  "unknownLanguage": "Ismeretlen nyelv: {value}",
+  "invalidIdentifier": "Hibás azonosító: {value}"
 }

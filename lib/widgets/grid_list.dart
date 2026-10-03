@@ -1,3 +1,4 @@
+import 'dart:math' show max;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/data_export.dart';
@@ -34,12 +35,17 @@ class GridList extends ConsumerWidget {
       slivers: <Widget>[
         SliverPadding(
           padding: const EdgeInsets.all(16.0),
-          sliver: SliverGrid.count(
-            childAspectRatio: 2 / 3,
-            crossAxisCount: (size / 150 / count).round(),
-            mainAxisSpacing: 10.0,
-            crossAxisSpacing: 10.0,
-            children: books.map((book) => createTile(book)).toList(),
+          // Lazy grid: only the tiles on screen are built (the old
+          // SliverGrid.count built every cover of the library up front).
+          sliver: SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              childAspectRatio: 2 / 3,
+              crossAxisCount: max(1, (size / 150 / count).round()),
+              mainAxisSpacing: 10.0,
+              crossAxisSpacing: 10.0,
+            ),
+            itemCount: books.length,
+            itemBuilder: (context, index) => createTile(books[index]),
           ),
         )
       ],

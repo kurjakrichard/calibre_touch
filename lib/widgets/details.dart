@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../data/data_export.dart';
 import '../l10n/l10n.dart';
+import '../metadata/calibre.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
 import 'book_cover.dart';
@@ -98,6 +100,17 @@ class Details extends ConsumerWidget {
         // Like Calibre: "Tags: Fantasy, Epic, Adventure"
         if (selectedBook.tagList.isNotEmpty)
           field(l10n.tags, selectedBook.tagList.join(', ')),
+        if (publishedDate(selectedBook, context) case final published?)
+          field(l10n.published, published),
+        if (selectedBook.languageList.isNotEmpty)
+          field(l10n.languages,
+              selectedBook.languageList.map(Calibre.languageName).join(', ')),
+        if (selectedBook.identifierMap.isNotEmpty)
+          field(
+              l10n.identifiers,
+              selectedBook.identifierMap.entries
+                  .map((e) => '${e.key}: ${e.value}')
+                  .join(', ')),
         text(
           selectedBook.price,
           isBold: true,
@@ -156,6 +169,15 @@ class Details extends ConsumerWidget {
         text(context.l10n.pageCount(selectedBook.pages), size: 12)
       ],
     );
+  }
+
+  /// books.pubdate as a local date in the app's language, null if none.
+  static String? publishedDate(Book book, BuildContext context) {
+    if (book.pubdate.isEmpty) return null;
+    final date = DateTime.tryParse(book.pubdate);
+    if (date == null) return null;
+    return DateFormat.yMMMd(Localizations.localeOf(context).toString())
+        .format(date.toLocal());
   }
 
   /// 'Label: value' line (e.g. Series, Publisher).

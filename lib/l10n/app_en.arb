@@ -170,6 +170,9 @@
   "readerThemeLight": "Light",
   "readerThemeSepia": "Sepia",
   "readerThemeDark": "Dark",
+  "readerThemeAuto": "Auto",
+  "readerDarkMode": "Dark mode",
+  "readerLightMode": "Light mode",
   "readerPreviousChapter": "Previous chapter",
   "readerNextChapter": "Next chapter",
   "readerChapterOf": "Chapter {current} of {total}",
@@ -254,5 +257,30 @@
     }
   },
   "grantAccess": "Allow access",
-  "retry": "Retry"
+  "retry": "Retry",
+  "continueReading": "Continue reading",
+  "noRecentBook": "No book opened yet",
+  "published": "Published",
+  "dateNotSet": "Not set",
+  "clearDate": "Clear date",
+  "languages": "Languages",
+  "languagesHint": "eng, hun",
+  "identifiers": "Identifiers",
+  "identifiersHint": "isbn:9781234567897, goodreads:123",
+  "unknownLanguage": "Unknown language: {value}",
+  "@unknownLanguage": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidIdentifier": "Invalid identifier: {value}",
+  "@invalidIdentifier": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  }
 }

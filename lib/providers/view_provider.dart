@@ -6,12 +6,12 @@ import 'shared_preferences_provider.dart';
 /// The ways the home page can show the library.
 ///
 /// - [grid]: the original Calibre Touch cover grid.
-/// - [flutibreList]: cover + author + title cards, ported from Flutibre.
-/// - [proTable]: sortable table of every field, ported from Flutibre Pro.
+/// - [list]: cover + author + title cards, ported from Flutibre.
+/// - [table]: sortable table of every field, ported from Flutibre Pro.
 enum BookView {
   grid('Covers', Icons.grid_view),
-  flutibreList('List', Icons.view_list),
-  proTable('Table', Icons.table_chart_outlined);
+  list('List', Icons.view_list),
+  table('Table', Icons.table_chart_outlined);
 
   const BookView(this.label, this.icon);
 

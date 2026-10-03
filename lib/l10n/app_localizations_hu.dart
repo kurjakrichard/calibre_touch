@@ -311,6 +311,15 @@ class AppLocalizationsHu extends AppLocalizations {
   String get readerThemeDark => 'Sötét';
 
   @override
+  String get readerThemeAuto => 'Automatikus';
+
+  @override
+  String get readerDarkMode => 'Sötét mód';
+
+  @override
+  String get readerLightMode => 'Világos mód';
+
+  @override
   String get readerPreviousChapter => 'Előző fejezet';
 
   @override
@@ -397,4 +406,41 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get retry => 'Újra';
+
+  @override
+  String get continueReading => 'Olvasás folytatása';
+
+  @override
+  String get noRecentBook => 'Még nem nyitottál meg könyvet';
+
+  @override
+  String get published => 'Megjelenés';
+
+  @override
+  String get dateNotSet => 'Nincs megadva';
+
+  @override
+  String get clearDate => 'Dátum törlése';
+
+  @override
+  String get languages => 'Nyelvek';
+
+  @override
+  String get languagesHint => 'hun, eng';
+
+  @override
+  String get identifiers => 'Azonosítók';
+
+  @override
+  String get identifiersHint => 'isbn:9781234567897, goodreads:123';
+
+  @override
+  String unknownLanguage(String value) {
+    return 'Ismeretlen nyelv: $value';
+  }
+
+  @override
+  String invalidIdentifier(String value) {
+    return 'Hibás azonosító: $value';
+  }
 }

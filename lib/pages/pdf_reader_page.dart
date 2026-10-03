@@ -10,7 +10,8 @@ import '../data/data_export.dart';
 import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
-import 'reader_page.dart' show ReaderTheme;
+import 'reader_page.dart'
+    show ReaderTheme, ReaderThemeChips, ReaderDarkModeButton;
 
 /// Full-screen PDF reader for the selected book, the PDF twin of
 /// [ReaderPage]: same page colours, same tap-to-show controls, system bars
@@ -50,8 +51,6 @@ class _OutlineEntry {
 
 class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
     with WidgetsBindingObserver {
-  static const _themeKey = 'readerTheme';
-
   /// Viewer background before the colour filter is applied (grey around
   /// the pages; becomes dark grey when inverted).
   static const Color _viewerBackground = Color(0xFFDDDDDD);
@@ -71,7 +70,18 @@ class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
   Timer? _saveTimer;
 
   bool _showControls = false;
-  ReaderTheme _theme = ReaderTheme.light;
+  /// Picked page colour; null = Auto (follows the app's light/dark theme).
+  ReaderTheme? _themeChoice;
+
+  /// The app's theme mode, refreshed in [build].
+  String _appMode = 'light';
+
+  ReaderTheme get _theme => ReaderTheme.resolve(_themeChoice, _appMode);
+
+  void _setThemeChoice(ReaderTheme? choice) {
+    setState(() => _themeChoice = choice);
+    ReaderTheme.saveChoice(_prefs, choice);
+  }
 
   bool get _isMobile => Platform.isAndroid || Platform.isIOS;
 
@@ -85,12 +95,17 @@ class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
     _positionKey = 'pdfPosition:${ref.read(pathProvider)}|'
         '${_book?.path}/${_book?.filename}';
     _page = _prefs.getInt(_positionKey) ?? 1;
-    _theme = ReaderTheme.values.firstWhere(
-      (t) => t.name == _prefs.getString(_themeKey),
-      orElse: () => ReaderTheme.light,
-    );
+    _themeChoice = ReaderTheme.loadChoice(_prefs);
+    _appMode = ref.read(modeProvider);
 
     final book = _book;
+    // Remember it for the drawer's "Continue reading" button (after this
+    // frame: providers can't be modified while the widget tree builds).
+    if (book != null && PdfReaderPage.canRead(book)) {
+      Future.microtask(() {
+        if (mounted) ref.read(lastReadBookProvider.notifier).set(book);
+      });
+    }
     if (book != null && PdfReaderPage.canRead(book)) _resolvePath(book);
     _applySystemUi();
   }
@@ -251,20 +266,12 @@ class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
                 children: [
                   Text(l10n.readerTheme, style: TextStyle(color: _theme.text)),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final theme in ReaderTheme.values)
-                        ChoiceChip(
-                          label: Text(_themeName(l10n, theme)),
-                          selected: _theme == theme,
-                          onSelected: (_) {
-                            setState(() => _theme = theme);
-                            setSheetState(() {});
-                            _prefs.setString(_themeKey, theme.name);
-                          },
-                        ),
-                    ],
+                  ReaderThemeChips(
+                    choice: _themeChoice,
+                    onChanged: (choice) {
+                      _setThemeChoice(choice);
+                      setSheetState(() {});
+                    },
                   ),
                   const SizedBox(height: 16),
                   Text(l10n.readerZoom, style: TextStyle(color: _theme.text)),
@@ -293,21 +300,12 @@ class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
     );
   }
 
-  String _themeName(AppLocalizations l10n, ReaderTheme theme) {
-    switch (theme) {
-      case ReaderTheme.light:
-        return l10n.readerThemeLight;
-      case ReaderTheme.sepia:
-        return l10n.readerThemeSepia;
-      case ReaderTheme.dark:
-        return l10n.readerThemeDark;
-    }
-  }
-
   // ---- UI ----
 
   @override
   Widget build(BuildContext context) {
+    // Auto page colour follows the app theme, also if it changes meanwhile.
+    _appMode = ref.watch(modeProvider);
     final l10n = context.l10n;
     final book = _book;
     final path = _path;
@@ -463,6 +461,10 @@ class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
                     icon: Icon(Icons.toc, color: _theme.text),
                     onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                   ),
+                ReaderDarkModeButton(
+                  theme: _theme,
+                  onChanged: _setThemeChoice,
+                ),
                 IconButton(
                   tooltip: l10n.readerSettings,
                   icon: Icon(Icons.tune, color: _theme.text),

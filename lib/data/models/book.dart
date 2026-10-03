@@ -28,6 +28,18 @@ class Book extends Equatable {
   /// Calibre tags (tags + books_tags_link), comma separated: 'Fantasy, Epic'.
   final String tags;
 
+  /// Publication date (books.pubdate) in Calibre's timestamp format,
+  /// '' = unknown.
+  final String pubdate;
+
+  /// Calibre language codes (languages + books_languages_link), comma
+  /// separated: 'eng, hun'.
+  final String languages;
+
+  /// Calibre identifiers (identifiers table) as Calibre shows them:
+  /// 'isbn:9781968707651, goodreads:245804344'.
+  final String identifiers;
+
   const Book(
       {this.id,
       required this.title,
@@ -44,7 +56,10 @@ class Book extends Equatable {
       this.publisher = '',
       this.series = '',
       this.series_index = 1.0,
-      this.tags = ''});
+      this.tags = '',
+      this.pubdate = '',
+      this.languages = '',
+      this.identifiers = ''});
 
   /// [tags] as a list (trimmed, empty entries dropped).
   List<String> get tagList => splitTags(tags);
@@ -61,6 +76,33 @@ class Book extends Equatable {
     }
     return result;
   }
+
+  /// [languages] as a list: ['eng', 'hun'].
+  List<String> get languageList => languages
+      .split(',')
+      .map((l) => l.trim())
+      .where((l) => l.isNotEmpty)
+      .toList();
+
+  /// [identifiers] as a map: {isbn: 978..., goodreads: 245804344}.
+  Map<String, String> get identifierMap => parseIdentifiers(identifiers);
+
+  /// 'isbn:1, goodreads:2' -> {isbn: 1, goodreads: 2}
+  static Map<String, String> parseIdentifiers(String value) {
+    final result = <String, String>{};
+    for (final part in value.split(',')) {
+      final colon = part.indexOf(':');
+      if (colon <= 0) continue;
+      final type = part.substring(0, colon).trim().toLowerCase();
+      final val = part.substring(colon + 1).trim();
+      if (type.isNotEmpty && val.isNotEmpty) result[type] = val;
+    }
+    return result;
+  }
+
+  /// {isbn: 1, goodreads: 2} -> 'isbn:1, goodreads:2'
+  static String joinIdentifiers(Map<String, String> identifiers) =>
+      identifiers.entries.map((e) => '${e.key}:${e.value}').join(', ');
 
   /// Series with its number, e.g. 'The Wheel of Time [2]' ('' = no series).
   String get seriesLabel =>
@@ -88,6 +130,9 @@ class Book extends Equatable {
       Bookkeys.series.name: series,
       Bookkeys.series_index.name: series_index,
       Bookkeys.tags.name: tags,
+      Bookkeys.pubdate.name: pubdate,
+      Bookkeys.languages.name: languages,
+      Bookkeys.identifiers.name: identifiers,
     };
   }
 
@@ -110,6 +155,9 @@ class Book extends Equatable {
       series_index:
           (map[Bookkeys.series_index.name] as num?)?.toDouble() ?? 1.0,
       tags: map[Bookkeys.tags.name] as String? ?? '',
+      pubdate: map[Bookkeys.pubdate.name] as String? ?? '',
+      languages: map[Bookkeys.languages.name] as String? ?? '',
+      identifiers: map[Bookkeys.identifiers.name] as String? ?? '',
     );
   }
 
@@ -131,6 +179,9 @@ class Book extends Equatable {
       series,
       series_index,
       tags,
+      pubdate,
+      languages,
+      identifiers,
     ];
   }
 
@@ -141,6 +192,7 @@ class Book extends Equatable {
   String toString() => 'Book(id: $id, title: $title, author: $author, '
       'path: $path, format: $format, pages: $pages, rating: $rating, '
       'publisher: $publisher, series: $series [$series_index], tags: $tags, '
+      'pubdate: $pubdate, languages: $languages, identifiers: $identifiers, '
       'description: ${description.length} chars)';
 
   Book copyWith({
@@ -160,6 +212,9 @@ class Book extends Equatable {
     String? series,
     double? series_index,
     String? tags,
+    String? pubdate,
+    String? languages,
+    String? identifiers,
   }) {
     return Book(
         id: id ?? this.id,
@@ -177,6 +232,9 @@ class Book extends Equatable {
         publisher: publisher ?? this.publisher,
         series: series ?? this.series,
         series_index: series_index ?? this.series_index,
-        tags: tags ?? this.tags);
+        tags: tags ?? this.tags,
+        pubdate: pubdate ?? this.pubdate,
+        languages: languages ?? this.languages,
+        identifiers: identifiers ?? this.identifiers);
   }
 }

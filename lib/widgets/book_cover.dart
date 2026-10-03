@@ -26,6 +26,11 @@ class BookCover extends ConsumerWidget {
     if (root == null || book.path.isEmpty) return _placeholder();
 
     final coverPath = FileService.coverPathIn(root, book.path);
+    // Books without cover.jpg go straight to the placeholder: letting
+    // Image.file fail on a missing file throws PathNotFoundException inside
+    // FileImage (file.length()), which pauses the debugger and looks like
+    // a freeze even though errorBuilder would handle it.
+    if (!File(coverPath).existsSync()) return _placeholder();
     return Image.file(
       File(coverPath),
       key: ValueKey(coverPath),

@@ -30,6 +30,8 @@ class FileService {
   }
 
   /// Absolute path of a book file, built from the values stored in the DB.
+  /// Calibre stores the format upper case (EPUB) but names the file with a
+  /// lower-case extension (.epub).
   ///
   /// Pass the current `pathProvider` value as [customPath] whenever the
   /// caller isn't explicitly asking for the default location.
@@ -42,7 +44,7 @@ class FileService {
     return p.joinAll([
       await libraryRoot(customPath: customPath),
       ...path.split('/'),
-      '$filename.$format'
+      '$filename.${format.toLowerCase()}'
     ]);
   }
 
@@ -176,6 +178,88 @@ class FileService {
     // The move itself succeeded. Tidying up is best-effort only: on Windows,
     // OneDrive/Explorer can lock a folder, and that must not fail the save.
     unawaited(_cleanupEmptyDirs(from, customPath: customPath)); // background
+  }
+
+  /// Moves a book to its new place after its title or author changed, the
+  /// way Calibre does: the book folder [fromPath] becomes [toPath]
+  /// (`books.path` values) and every file named [fromName] (`data.name`)
+  /// is renamed to [toName], keeping its extension - so all formats
+  /// (.epub, .pdf, ...) follow, and cover.jpg, metadata.opf and any other
+  /// files move with the folder. The old author folder is removed if it is
+  /// left empty.
+  ///
+  /// Throws if the book folder is missing or another folder is already at
+  /// [toPath] - nothing is ever overwritten.
+  Future<void> relocateBook({
+    required String fromPath,
+    required String toPath,
+    required String fromName,
+    required String toName,
+    String? customPath,
+  }) async {
+    final root = await libraryRoot(customPath: customPath);
+    final fromDir = Directory(p.joinAll([root, ...fromPath.split('/')]));
+    final toDir = Directory(p.joinAll([root, ...toPath.split('/')]));
+    if (!p.isWithin(root, fromDir.path) || !p.isWithin(root, toDir.path)) {
+      throw FileSystemException('Invalid book path', toDir.path);
+    }
+    if (!await fromDir.exists()) {
+      throw FileSystemException('Book folder not found', fromDir.path);
+    }
+
+    // 1) The folder.
+    final sameFolder = p.equals(fromDir.path, toDir.path);
+    if (!sameFolder) {
+      if (await toDir.exists()) {
+        throw FileSystemException('A folder already exists at the target', toDir.path);
+      }
+      await toDir.parent.create(recursive: true);
+      try {
+        await fromDir.rename(toDir.path);
+      } on FileSystemException {
+        // rename fails across drives (and sometimes on Android storage):
+        // copy everything, then remove the old folder.
+        await _copyDirectory(fromDir, toDir);
+        try {
+          await fromDir.delete(recursive: true);
+        } catch (e) {
+          debugPrint('Copied, but the old folder was not removed: $e');
+        }
+      }
+    }
+
+    // 2) The files inside: "<fromName>.<ext>" -> "<toName>.<ext>".
+    if (fromName != toName) {
+      final files = await toDir.list().where((e) => e is File).toList();
+      for (final file in files) {
+        if (p.basenameWithoutExtension(file.path) != fromName) continue;
+        final target = p.join(toDir.path, '$toName${p.extension(file.path)}');
+        if (p.equals(file.path, target) || await File(target).exists()) continue;
+        await file.rename(target);
+      }
+    }
+
+    // 3) Tidy up the old author folder (best effort).
+    if (!sameFolder) {
+      try {
+        await _removeIfEmpty(fromDir, root);
+        await _removeIfEmpty(fromDir.parent, root);
+      } catch (e) {
+        debugPrint('Old folder not removed (harmless): $e');
+      }
+    }
+  }
+
+  Future<void> _copyDirectory(Directory from, Directory to) async {
+    await to.create(recursive: true);
+    await for (final entity in from.list()) {
+      final target = p.join(to.path, p.basename(entity.path));
+      if (entity is Directory) {
+        await _copyDirectory(entity, Directory(target));
+      } else if (entity is File) {
+        await entity.copy(target);
+      }
+    }
   }
 
   Future<void> _cleanupEmptyDirs(String movedFilePath, {String? customPath}) async {
