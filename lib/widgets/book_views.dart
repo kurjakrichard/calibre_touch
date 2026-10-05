@@ -6,9 +6,8 @@ import '../data/data_export.dart';
 import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
-import 'book_actions.dart';
-import 'book_cover.dart';
-import 'grid_list.dart';
+import 'widgets.dart';
+
 
 // ---------------------------------------------------------------------------
 // View switching
@@ -32,8 +31,8 @@ class BookViewBody extends ConsumerWidget {
     }
     return switch (ref.watch(bookViewProvider)) {
       BookView.grid => GridList(count: count),
-      BookView.list => const FlutibreListView(),
-      BookView.table => const ProTableView(),
+      BookView.list => const BookList(),
+      BookView.table => const TableView(),
     };
   }
 }
@@ -206,19 +205,18 @@ class BookViewMenuButton extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Flutibre: list with cover, author and title
+// Book list: list with cover, author and title
 // ---------------------------------------------------------------------------
 
-class FlutibreListView extends ConsumerWidget {
-  const FlutibreListView({super.key});
-
-  static const Color _rowColor = Color.fromRGBO(98, 163, 191, 0.3);
-  static const Color _selectedColor = Color.fromRGBO(98, 163, 191, 0.7);
+class BookList extends ConsumerWidget {
+  const BookList({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final books = ref.watch(booksProvider).visibleBooks;
     final selectedId = ref.watch(selectedBookProvider.select((b) => b?.id));
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ListView.builder(
       itemCount: books.length,
@@ -228,10 +226,12 @@ class FlutibreListView extends ConsumerWidget {
         return Card(
           elevation: 5,
           clipBehavior: Clip.antiAlias,
-          color: book.id == selectedId ? _selectedColor : _rowColor,
+          color: book.id == selectedId
+              ? (isDark ? darkSelectedBookColor : selectedBookColor)
+              : (isDark ? darkListBackground : panelColor),
           child: InkWell(
-            highlightColor: const Color.fromARGB(255, 47, 119, 177),
-            splashColor: Colors.green,
+            highlightColor: isDark ? darkBookHighlightColor : bookHighlightColor,
+            splashColor: isDark ? darkBookSplashColor : bookSplashColor,
             onTap: () => BookActions.select(context, ref, book),
             onDoubleTap: () => BookActions.showMenu(context, ref, book),
             onLongPress: () => BookActions.showMenu(context, ref, book),
@@ -276,11 +276,11 @@ class FlutibreListView extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Table (Flutibre Pro: every field)
+// Table 
 // ---------------------------------------------------------------------------
 
-class ProTableView extends StatelessWidget {
-  const ProTableView({super.key});
+class TableView extends StatelessWidget {
+  const TableView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -391,7 +391,6 @@ class BookTable extends ConsumerStatefulWidget {
 
 class _BookTableState extends ConsumerState<BookTable> {
   static const double _rowHeight = 44;
-  static const Color _selectedColor = Color.fromRGBO(98, 163, 191, 0.7);
 
   int? _sortColumn;
   bool _ascending = true;
@@ -441,9 +440,10 @@ class _BookTableState extends ConsumerState<BookTable> {
         _sortedBooks(ref.watch(booksProvider).visibleBooks, columns);
 
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final headerStyle = theme.textTheme.titleSmall
-        ?.copyWith(fontWeight: FontWeight.bold, color: buttoncolor);
-    final stripe = theme.colorScheme.onSurface.withValues(alpha: 0.04);
+        ?.copyWith(fontWeight: FontWeight.bold, color: isDark ? darkFontColor : buttonColor);
+    final stripe = isDark ? darkListStripeColor : listStripeColor;
 
     return LayoutBuilder(builder: (context, constraints) {
       final minWidth = columns.fold<double>(0, (sum, c) => sum + c.width);
@@ -473,7 +473,7 @@ class _BookTableState extends ConsumerState<BookTable> {
       }
 
       final header = Material(
-        color: secondary,
+        color: isDark ? darkListBackground : panelColor,
         child: SizedBox(
           height: _rowHeight,
           child: Row(
@@ -493,7 +493,7 @@ class _BookTableState extends ConsumerState<BookTable> {
                                   ? Icons.arrow_upward
                                   : Icons.arrow_downward,
                               size: 16,
-                              color: buttoncolor,
+                              color: headerStyle?.color,
                             )
                           : null,
                     ),
@@ -512,9 +512,11 @@ class _BookTableState extends ConsumerState<BookTable> {
           final selected = book.id == selectedId;
           return Material(
             color: selected
-                ? _selectedColor
-                : (index.isOdd ? stripe : Colors.transparent),
+                ? (isDark ? darkSelectedBookColor : selectedBookColor)
+                : (index.isOdd ? stripe : transparentColor),
             child: InkWell(
+              highlightColor: isDark ? darkBookHighlightColor : bookHighlightColor,
+              splashColor: isDark ? darkBookSplashColor : bookSplashColor,
               onTap: () => BookActions.select(context, ref, book),
               onDoubleTap: () => BookActions.showMenu(context, ref, book),
               onLongPress: () => BookActions.showMenu(context, ref, book),

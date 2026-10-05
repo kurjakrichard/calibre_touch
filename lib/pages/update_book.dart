@@ -292,19 +292,16 @@ class _UpdateBookScreenState extends ConsumerState<UpdateBook> {
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(
-          l10n.deleteConfirmTitle,
-          style: const TextStyle(color: buttoncolor),
-        ),
+        title: Text(l10n.deleteConfirmTitle),
         content: Text(l10n.deleteConfirmContent(book.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.no, style: const TextStyle(color: buttoncolor)),
+            child: Text(l10n.no),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.yes, style: const TextStyle(color: Colors.red)),
+            child: Text(l10n.yes, style: const TextStyle(color: errorTextColor)),
           ),
         ],
       ),

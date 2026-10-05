@@ -103,6 +103,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get format => 'Formátum';
 
   @override
+  String get formats => 'Formátumok';
+
+  @override
+  String get chooseFormat => 'Válassz formátumot';
+
+  @override
   String get rating => 'Értékelés';
 
   @override

@@ -15,11 +15,7 @@ class AppAlerts {
   static displaySnackbar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: buttoncolor,
-        content: Text(
-          style: const TextStyle(color: Colors.white),
-          message,
-        ),
+        content: Text(message),
       ),
     );
   }
@@ -31,10 +27,7 @@ class AppAlerts {
   }) async {
     final l10n = context.l10n;
     Widget cancelButton = TextButton(
-      child: Text(
-        l10n.no,
-        style: const TextStyle(color: buttoncolor),
-      ),
+      child: Text(l10n.no),
       onPressed: () => context.pop(),
     );
     Widget deleteButton = TextButton(
@@ -68,12 +61,11 @@ class AppAlerts {
           },
         );
       },
-      child: Text(l10n.yes, style: const TextStyle(color: buttoncolor)),
+      child: Text(l10n.yes),
     );
 
     AlertDialog alert = AlertDialog(
-      title: Text(l10n.deleteConfirmTitle,
-          style: const TextStyle(color: buttoncolor)),
+      title: Text(l10n.deleteConfirmTitle),
       actions: [
         deleteButton,
         cancelButton,

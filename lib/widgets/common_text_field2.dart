@@ -1,4 +1,3 @@
-import 'package:calibre_touch/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 
@@ -25,10 +24,7 @@ class CommonTextField2 extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          title,
-          style: const TextStyle(color: mainFontColor),
-        ),
+        Text(title),
         const Gap(10),
         TextField(
           readOnly: readOnly,

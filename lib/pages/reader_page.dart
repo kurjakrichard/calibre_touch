@@ -17,9 +17,9 @@ import '../utils/utils.dart';
 /// Colour schemes of the reader. Independent of the app's own light/dark
 /// theme, like in a standalone e-book reader.
 enum ReaderTheme {
-  light(Color(0xFFFFFFFF), Color(0xFF1F1F1F), Color(0xFFF1F1F1)),
-  sepia(Color(0xFFF4ECD8), Color(0xFF5B4636), Color(0xFFE8DDC4)),
-  dark(Color(0xFF121212), Color(0xFFD6D6D6), Color(0xFF1E1E1E));
+  light(readerLightBackground, readerLightText, readerLightBar),
+  sepia(readerSepiaBackground, readerSepiaText, readerSepiaBar),
+  dark(readerDarkBackground, readerDarkText, readerDarkBar);
 
   const ReaderTheme(this.background, this.text, this.bar);
 
@@ -138,12 +138,16 @@ class ReaderPage extends ConsumerStatefulWidget {
   static Page<void> pageBuilder(BuildContext context, GoRouterState state) =>
       CustomTransitionPage<void>(
         key: state.pageKey,
-        child: const ReaderPage(),
+        // extra = the format to open (e.g. 'PDF'), null = the book's default.
+        child: ReaderPage(format: state.extra as String?),
         transitionsBuilder: (context, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),
       );
 
-  const ReaderPage({super.key});
+  const ReaderPage({super.key, this.format});
+
+  /// Which of the selected book's formats to open; null = [Book.format].
+  final String? format;
 
   /// Whether the built-in reader can open [book].
   static bool canRead(Book book) => book.format.toLowerCase() == 'epub';
@@ -198,7 +202,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     WidgetsBinding.instance.addObserver(this);
 
     final prefs = _prefs = ref.read(sharedPreferencesProvider);
-    _book = ref.read(selectedBookProvider);
+    _book = ref.read(selectedBookProvider)?.withFormat(widget.format);
     // Per library + book, so the same book in another library has its own.
     _positionKey = 'readerPosition:${ref.read(pathProvider)}|'
         '${_book?.path}/${_book?.filename}';
@@ -462,7 +466,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
       brightness: _theme.brightness,
       scaffoldBackgroundColor: _theme.background,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: buttoncolor,
+        seedColor: buttonColor,
         brightness: _theme.brightness,
       ),
       iconTheme: IconThemeData(color: _theme.text),
@@ -799,7 +803,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
                             '${l10n.readerChapterOf(_section + 1, count)}'
                             ' · $percent%',
                             style: TextStyle(
-                                color: _theme.text.withValues(alpha: 0.7),
+                                color: _theme.text.withValues(alpha: readerSecondaryTextOpacity),
                                 fontSize: 12),
                           ),
                         ],

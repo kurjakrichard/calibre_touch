@@ -105,6 +105,9 @@ class Details extends ConsumerWidget {
         if (selectedBook.languageList.isNotEmpty)
           field(l10n.languages,
               selectedBook.languageList.map(Calibre.languageName).join(', ')),
+        // Like Calibre's "Formats: EPUB, PDF" - each one opens that format.
+        if (selectedBook.formatList.isNotEmpty)
+          formatsField(l10n.formats, selectedBook),
         if (selectedBook.identifierMap.isNotEmpty)
           field(
               l10n.identifiers,
@@ -161,7 +164,7 @@ class Details extends ConsumerWidget {
             width: 360,
             child: Material(
               elevation: 15.0,
-              shadowColor: Colors.yellow.shade900,
+              shadowColor: coverShadowColor,
               child: BookCover(book: selectedBook, fit: BoxFit.fitWidth),
             ),
           ),
@@ -190,7 +193,33 @@ class Details extends ConsumerWidget {
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             TextSpan(text: value),
           ]),
-          style: const TextStyle(color: mainFontColor, fontSize: 13),
+          style: const TextStyle(fontSize: 13),
+        ),
+      );
+
+  /// 'Formats:' followed by one chip per format; tapping a chip opens the
+  /// book in that format.
+  Widget formatsField(String label, Book book) => Padding(
+        padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
+        child: Consumer(
+          builder: (context, ref, _) => Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('$label: ',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.bold)),
+              for (final format in book.formatList)
+                ActionChip(
+                  label: Text(format, style: const TextStyle(fontSize: 12)),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onPressed: () =>
+                      BookActions.open(context, ref, book, format: format),
+                ),
+            ],
+          ),
         ),
       );
 
@@ -204,7 +233,6 @@ class Details extends ConsumerWidget {
         child: Text(
           data,
           style: TextStyle(
-              color: mainFontColor,
               fontSize: size.toDouble(),
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
         ),

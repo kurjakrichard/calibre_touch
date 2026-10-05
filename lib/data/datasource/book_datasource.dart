@@ -43,6 +43,8 @@ const int calibreSchemaVersion = 27;
 ///                       books_pages_link_create_trigger)
 ///   - Book.filename/format <-> data.name / data.format (first/only
 ///                       data row for that book)
+///   - Book.formats  <-> every data.format of the book ('EPUB, PDF'),
+///                       read only
 ///   - Book.pubdate  <-> books.pubdate ('' <-> Calibre's undefined date)
 ///   - Book.languages <-> languages + books_languages_link ('eng, hun')
 ///   - Book.identifiers <-> identifiers ('isbn:..., goodreads:...'; the
@@ -246,6 +248,8 @@ class BookDatasource {
           AS ${Bookkeys.filename.name},
       COALESCE((SELECT format FROM data WHERE data.book = books.id LIMIT 1), '')
           AS ${Bookkeys.format.name},
+      COALESCE((SELECT group_concat(UPPER(format), ', ') FROM data
+                WHERE data.book = books.id), '') AS ${Bookkeys.formats.name},
       books.last_modified AS ${Bookkeys.last_modified.name},
       COALESCE((SELECT text FROM comments WHERE comments.book = books.id), '')
           AS ${Bookkeys.description.name},

@@ -26,37 +26,84 @@ class BookActions {
     }
   }
 
-  /// Whether [book] opens in one of the built-in readers (EPUB or PDF).
-  /// False when the user chose the platform's default app in Settings
-  /// ([useBuiltIn] = the value of [useBuiltInReaderProvider]).
+  /// Whether [book] opens in one of the built-in readers (EPUB or PDF) -
+  /// true if any of its formats does. False when the user chose the
+  /// platform's default app in Settings ([useBuiltIn] = the value of
+  /// [useBuiltInReaderProvider]).
   static bool canReadInApp(Book book, {required bool useBuiltIn}) =>
-      useBuiltIn && (ReaderPage.canRead(book) || PdfReaderPage.canRead(book));
+      useBuiltIn &&
+      book.formatList.any((f) => _canReadFormatInApp(book.withFormat(f)));
 
-  /// Opens [book]: EPUB and PDF books in the built-in readers (unless the
-  /// user turned them off in Settings), anything else in the system's
-  /// default app.
-  static Future<void> open(
-      BuildContext context, WidgetRef ref, Book book) async {
+  static bool _canReadFormatInApp(Book book) =>
+      ReaderPage.canRead(book) || PdfReaderPage.canRead(book);
+
+  /// Opens [book] in [format] (e.g. 'PDF'). Without [format], a book with
+  /// several formats asks which one first (like Calibre's "Read" button);
+  /// a book with one format opens straight away.
+  ///
+  /// EPUB and PDF open in the built-in readers (unless the user turned
+  /// them off in Settings), anything else in the system's default app.
+  static Future<void> open(BuildContext context, WidgetRef ref, Book book,
+      {String? format}) async {
     ref.read(selectedBookProvider.notifier).setSelectedBook(book);
+    if (format == null) {
+      final formats = book.formatList;
+      if (formats.length > 1) {
+        format = await chooseFormat(context, ref, book);
+        if (format == null || !context.mounted) return;
+      }
+    }
+    // The selected book stays as it is (its default format); only the
+    // copy that is opened gets the chosen format.
+    final target = book.withFormat(format);
     if (ref.read(useBuiltInReaderProvider)) {
-      if (ReaderPage.canRead(book)) {
-        context.pushNamed(Routes.reader.name);
+      if (ReaderPage.canRead(target)) {
+        context.pushNamed(Routes.reader.name, extra: target.format);
         return;
       }
-      if (PdfReaderPage.canRead(book)) {
-        context.pushNamed(Routes.pdfReader.name);
+      if (PdfReaderPage.canRead(target)) {
+        context.pushNamed(Routes.pdfReader.name, extra: target.format);
         return;
       }
     }
     final fs = FileService();
     fs.openFile(await fs.bookFilePath(
-      path: book.path,
-      filename: book.filename,
+      path: target.path,
+      filename: target.filename,
       // Calibre stores the format upper-case (EPUB) but the files on disk
       // are lower-case (.epub) - matters on case-sensitive Android.
-      format: book.format.toLowerCase(),
+      format: target.format.toLowerCase(),
       customPath: ref.read(pathProvider),
     ));
+  }
+
+  /// Dialog listing the formats of [book]; returns the picked one
+  /// ('EPUB', 'PDF', ...) or null if cancelled.
+  static Future<String?> chooseFormat(
+      BuildContext context, WidgetRef ref, Book book) {
+    final l10n = context.l10n;
+    final useBuiltIn = ref.read(useBuiltInReaderProvider);
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(l10n.chooseFormat),
+        children: [
+          for (final f in book.formatList)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(dialogContext).pop(f),
+              child: Row(
+                children: [
+                  Icon(useBuiltIn && _canReadFormatInApp(book.withFormat(f))
+                      ? Icons.menu_book
+                      : Icons.open_in_new),
+                  const SizedBox(width: 16),
+                  Text(f, style: const TextStyle(fontSize: 16)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   /// Shows the folder of [book] (book file + cover.jpg) in the system file

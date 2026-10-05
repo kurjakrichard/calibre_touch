@@ -11,6 +11,10 @@ class Book extends Equatable {
   final String path;
   final String filename;
   final String format;
+
+  /// Every format of the book in Calibre's data table, comma separated,
+  /// upper case: 'EPUB, PDF'. [format] is the one used by default.
+  final String formats;
   final String last_modified;
   final String description;
   final double rating;
@@ -49,6 +53,7 @@ class Book extends Equatable {
       required this.path,
       required this.filename,
       required this.format,
+      this.formats = '',
       required this.last_modified,
       required this.description,
       required this.rating,
@@ -60,6 +65,23 @@ class Book extends Equatable {
       this.pubdate = '',
       this.languages = '',
       this.identifiers = ''});
+
+  /// All formats, upper case, without duplicates: ['EPUB', 'PDF'].
+  /// Falls back to [format] when [formats] is not filled in.
+  List<String> get formatList {
+    final result = <String>[];
+    for (final raw in [...formats.split(','), format]) {
+      final f = raw.trim().toUpperCase();
+      if (f.isNotEmpty && !result.contains(f)) result.add(f);
+    }
+    return result;
+  }
+
+  /// This book with [format] set to [value] (to open one of its other
+  /// formats); unchanged when [value] is null or empty.
+  Book withFormat(String? value) => value == null || value.trim().isEmpty
+      ? this
+      : copyWith(format: value.trim().toUpperCase());
 
   /// [tags] as a list (trimmed, empty entries dropped).
   List<String> get tagList => splitTags(tags);
@@ -122,6 +144,7 @@ class Book extends Equatable {
       Bookkeys.path.name: path,
       Bookkeys.filename.name: filename,
       Bookkeys.format.name: format,
+      Bookkeys.formats.name: formats,
       Bookkeys.last_modified.name: last_modified,
       Bookkeys.description.name: description,
       Bookkeys.rating.name: rating,
@@ -146,6 +169,7 @@ class Book extends Equatable {
       path: map[Bookkeys.path.name],
       filename: map[Bookkeys.filename.name],
       format: map[Bookkeys.format.name],
+      formats: map[Bookkeys.formats.name] as String? ?? '',
       last_modified: map[Bookkeys.last_modified.name],
       description: map[Bookkeys.description.name],
       rating: map[Bookkeys.rating.name],
@@ -171,6 +195,7 @@ class Book extends Equatable {
       path,
       filename,
       format,
+      formats,
       last_modified,
       description,
       rating,
@@ -190,7 +215,7 @@ class Book extends Equatable {
   /// length is shown.
   @override
   String toString() => 'Book(id: $id, title: $title, author: $author, '
-      'path: $path, format: $format, pages: $pages, rating: $rating, '
+      'path: $path, format: $format, formats: $formats, pages: $pages, rating: $rating, '
       'publisher: $publisher, series: $series [$series_index], tags: $tags, '
       'pubdate: $pubdate, languages: $languages, identifiers: $identifiers, '
       'description: ${description.length} chars)';
@@ -204,6 +229,7 @@ class Book extends Equatable {
     String? path,
     String? filename,
     String? format,
+    String? formats,
     String? last_modified,
     String? description,
     double? rating,
@@ -225,6 +251,7 @@ class Book extends Equatable {
         path: path ?? this.path,
         filename: filename ?? this.filename,
         format: format ?? this.format,
+        formats: formats ?? this.formats,
         last_modified: last_modified ?? this.last_modified,
         description: description ?? this.description,
         rating: rating ?? this.rating,

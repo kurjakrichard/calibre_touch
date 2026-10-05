@@ -40,6 +40,8 @@
   "description": "Description",
   "date": "Date",
   "format": "Format",
+  "formats": "Formats",
+  "chooseFormat": "Choose a format",
   "rating": "Rating",
   "pages": "Pages",
   "pageCount": "{count} pages",

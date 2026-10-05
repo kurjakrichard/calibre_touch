@@ -51,7 +51,7 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
     final l10n = context.l10n;
     return Scaffold(
       bottomSheet: Container(
-        color: buttoncolor,
+        color: buttonColor,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         height: 80,
         child: Row(
@@ -66,18 +66,18 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
                     },
                     child: Text(
                       l10n.back,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: splashTextColor),
                     ))
                 : Text(
                     '  ${l10n.back}     ',
-                    style: const TextStyle(color: buttoncolor),
+                    style: const TextStyle(color: buttonColor),
                   ),
             Center(
               child: SmoothPageIndicator(
                 controller: _pageController,
                 count: 3,
                 effect:
-                    const WormEffect(spacing: 16, activeDotColor: Colors.white),
+                    const WormEffect(spacing: 16, activeDotColor: splashTextColor),
                 onDotClicked: (index) => _pageController.animateToPage(index,
                     duration: const Duration(milliseconds: 500),
                     curve: Curves.easeInOut),
@@ -92,14 +92,14 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
                     },
                     child: Text(
                       l10n.next,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: splashTextColor),
                     ),
                   )
                 : TextButton(
                     onPressed: _finishOnboarding,
                     child: Text(
                       l10n.getStarted,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: splashTextColor),
                     ),
                   ),
           ],
@@ -121,7 +121,7 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
     return ListView(
       children: [
         Container(
-          color: const Color.fromRGBO(28, 47, 67, 1),
+          color: splashBackgroundColor,
           child: Center(
             child: Image.asset(
               'assets/logo.png',
@@ -179,7 +179,7 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
     return ListView(
       children: [
         Container(
-          color: const Color.fromRGBO(28, 47, 67, 1),
+          color: splashBackgroundColor,
           child: Center(
             child: Image.asset(
               'assets/logo.png',

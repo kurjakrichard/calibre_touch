@@ -22,7 +22,6 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: primary,
       appBar: AppBar(
         title: Text(context.l10n.settings),
       ),
@@ -44,10 +43,7 @@ class SettingsPage extends ConsumerWidget {
                     context.goNamed(Routes.home.name);
                   }
                 },
-                child: Text(
-                  context.l10n.done,
-                  style: const TextStyle(color: Colors.white),
-                ),
+                child: Text(context.l10n.done),
               ),
             ],
           ),

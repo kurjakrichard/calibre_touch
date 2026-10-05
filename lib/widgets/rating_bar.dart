@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
+import '../utils/utils.dart';
 
 class RatingBar extends StatelessWidget {
   final int starCount;
   final double rating;
-  final Color color;
+  /// Star colour; null = the icon colour of the current theme.
+  final Color? color;
 
   const RatingBar(
       {super.key,
       this.starCount = 5,
       this.rating = 0.0,
-      this.color = Colors.black87});
+      this.color});
 
   ///create star
   Widget buildStar(BuildContext context, int index) {
     IconData icName = Icons.star;
-    Color icColor = color;
+    final starColor =
+        color ?? IconTheme.of(context).color ?? ratingStarColor;
+    Color icColor = starColor;
 
     if (index >= rating) {
       icName = Icons.star_border;
-      icColor = color.withValues(alpha: 0.6);
+      icColor = starColor.withValues(alpha: emptyStarOpacity);
     } else if (index > rating - 1 && index < rating) {
       icName = Icons.star_half;
     }

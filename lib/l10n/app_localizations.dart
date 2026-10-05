@@ -278,6 +278,18 @@ abstract class AppLocalizations {
   /// **'Format'**
   String get format;
 
+  /// No description provided for @formats.
+  ///
+  /// In en, this message translates to:
+  /// **'Formats'**
+  String get formats;
+
+  /// No description provided for @chooseFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a format'**
+  String get chooseFormat;
+
   /// No description provided for @rating.
   ///
   /// In en, this message translates to:

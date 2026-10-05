@@ -129,13 +129,13 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
         Text(
           usingDefault ? l10n.usingDefaultLocation : l10n.usingCustomFolder,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14, color: mainFontColor),
+          style: const TextStyle(fontSize: 14),
         ),
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: secondary,
+            color: (Theme.of(context).brightness == Brightness.dark ? darkListBackground : panelColor),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(currentPath, textAlign: TextAlign.center),

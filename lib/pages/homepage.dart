@@ -79,20 +79,20 @@ class _HomeState extends ConsumerState<HomePage> {
               // Search only when typing is finished (Enter / search key),
               // not on every keystroke.
               onSubmitted: _searchNow,
-              cursorColor: Colors.white,
+              cursorColor: onButtonColor,
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
-                  ?.copyWith(color: Colors.white),
+                  ?.copyWith(color: onButtonColor),
               decoration: InputDecoration(
                 // Tappable search button (same as pressing Enter).
                 prefixIcon: IconButton(
                   tooltip: l10n.search,
-                  icon: const Icon(Icons.search, color: Colors.white),
+                  icon: const Icon(Icons.search, color: onButtonColor),
                   onPressed: () => _searchNow(_searchController.text),
                 ),
                 hintText: l10n.searchBook,
-                hintStyle: const TextStyle(color: Colors.white70),
+                hintStyle: const TextStyle(color: searchHintColor),
                 border: InputBorder.none,
               ),
             ),
@@ -130,7 +130,7 @@ class _HomeState extends ConsumerState<HomePage> {
           ),
           const VerticalDivider(
             thickness: 4,
-            color: Colors.transparent,
+            color: transparentColor,
           ),
           const Expanded(
             flex: 1,

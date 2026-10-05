@@ -9,6 +9,7 @@ enum Bookkeys {
   path(name: 'path'),
   filename(name: 'filename'),
   format(name: 'format'),
+  formats(name: 'formats'),
   // ignore: constant_identifier_names
   last_modified(name: 'last_modified'),
   description(name: 'description'),

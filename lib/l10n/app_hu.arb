@@ -30,6 +30,8 @@
   "description": "Leírás",
   "date": "Dátum",
   "format": "Formátum",
+  "formats": "Formátumok",
+  "chooseFormat": "Válassz formátumot",
   "rating": "Értékelés",
   "pages": "Oldalak",
   "pageCount": "{count} oldal",

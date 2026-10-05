@@ -41,7 +41,7 @@ class SplashPageState extends State<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(28, 47, 67, 1),
+      backgroundColor: splashBackgroundColor,
       body: Center(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -54,7 +54,7 @@ class SplashPageState extends State<SplashPage> {
             ),
             Text(
               context.l10n.welcome,
-              style: const TextStyle(fontSize: 18, color: Colors.white),
+              style: const TextStyle(fontSize: 18, color: splashTextColor),
               textAlign: TextAlign.center,
             ),
           ],

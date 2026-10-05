@@ -102,6 +102,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get format => 'Format';
 
   @override
+  String get formats => 'Formats';
+
+  @override
+  String get chooseFormat => 'Choose a format';
+
+  @override
   String get rating => 'Rating';
 
   @override

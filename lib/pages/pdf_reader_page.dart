@@ -27,12 +27,16 @@ class PdfReaderPage extends ConsumerStatefulWidget {
   static Page<void> pageBuilder(BuildContext context, GoRouterState state) =>
       CustomTransitionPage<void>(
         key: state.pageKey,
-        child: const PdfReaderPage(),
+        // extra = the format to open (e.g. 'PDF'), null = the book's default.
+        child: PdfReaderPage(format: state.extra as String?),
         transitionsBuilder: (context, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),
       );
 
-  const PdfReaderPage({super.key});
+  const PdfReaderPage({super.key, this.format});
+
+  /// Which of the selected book's formats to open; null = [Book.format].
+  final String? format;
 
   /// Whether the built-in PDF reader can open [book].
   static bool canRead(Book book) => book.format.toLowerCase() == 'pdf';
@@ -51,10 +55,6 @@ class _OutlineEntry {
 
 class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
     with WidgetsBindingObserver {
-  /// Viewer background before the colour filter is applied (grey around
-  /// the pages; becomes dark grey when inverted).
-  static const Color _viewerBackground = Color(0xFFDDDDDD);
-
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _controller = PdfViewerController();
 
@@ -91,7 +91,7 @@ class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
     WidgetsBinding.instance.addObserver(this);
 
     _prefs = ref.read(sharedPreferencesProvider);
-    _book = ref.read(selectedBookProvider);
+    _book = ref.read(selectedBookProvider)?.withFormat(widget.format);
     _positionKey = 'pdfPosition:${ref.read(pathProvider)}|'
         '${_book?.path}/${_book?.filename}';
     _page = _prefs.getInt(_positionKey) ?? 1;
@@ -333,7 +333,7 @@ class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
     return Theme(
       data: base.copyWith(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: buttoncolor,
+          seedColor: buttonColor,
           brightness: _theme.brightness,
         ),
         iconTheme: IconThemeData(color: _theme.text),
@@ -387,7 +387,7 @@ class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
       controller: _controller,
       initialPageNumber: _page,
       params: PdfViewerParams(
-        backgroundColor: _viewerBackground,
+        backgroundColor: pdfViewerBackground,
         margin: 8,
         onViewerReady: _onViewerReady,
         onPageChanged: _onPageChanged,

@@ -32,10 +32,12 @@ class DrawerWidget extends ConsumerWidget {
             .watch(booksProvider.select((s) => s.books))
             .where((b) => b.id == lastId)
             .firstOrNull;
-    final disabledColor = buttoncolor.withValues(alpha: 0.5);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? darkDrawerTextColor : buttonColor;
+    final disabledColor =
+        isDark ? darkDrawerDisabledColor : disabledButtonColor;
 
     return Drawer(
-      backgroundColor: secondary,
       child: ListView(
         children: [
           SizedBox(
@@ -51,8 +53,8 @@ class DrawerWidget extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         context.l10n.appTitle,
-                        style: const TextStyle(
-                            color: buttoncolor,
+                        style: TextStyle(
+                            color: textColor,
                             fontSize: 16,
                             height: 2,
                             overflow: TextOverflow.clip),
@@ -64,11 +66,11 @@ class DrawerWidget extends ConsumerWidget {
           ListTile(
             enabled: lastBook != null,
             leading: Icon(Icons.menu_book_outlined,
-                color: lastBook != null ? buttoncolor : disabledColor),
+                color: lastBook != null ? textColor : disabledColor),
             title: Text(
               context.l10n.continueReading,
               style: TextStyle(
-                  color: lastBook != null ? buttoncolor : disabledColor),
+                  color: lastBook != null ? textColor : disabledColor),
             ),
             subtitle: Text(
               lastBook?.title ?? context.l10n.noRecentBook,
@@ -84,10 +86,10 @@ class DrawerWidget extends ConsumerWidget {
                   },
           ),
           ListTile(
-            leading: const Icon(Icons.settings_outlined, color: buttoncolor),
+            leading: Icon(Icons.settings_outlined, color: textColor),
             title: Text(
               context.l10n.settings,
-              style: const TextStyle(color: buttoncolor),
+              style: TextStyle(color: textColor),
             ),
             onTap: () {
               _closeDrawer(context);

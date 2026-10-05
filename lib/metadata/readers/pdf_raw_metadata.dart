@@ -477,14 +477,49 @@ String _pdfText(Uint8List b) {
   if (b.length >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF) {
     return utf8.decode(b.sublist(3), allowMalformed: true);
   }
-  if (b.any((x) => x >= 0x80)) {
-    try {
-      return utf8.decode(b);
-    } on FormatException {
-      // not UTF-8 -> PDFDocEncoding below
-    }
+  // Checked up front instead of try/catch around utf8.decode: a thrown
+  // FormatException stops the debugger even though it is handled.
+  if (b.any((x) => x >= 0x80) && _isValidUtf8(b)) {
+    return utf8.decode(b, allowMalformed: true);
   }
   return String.fromCharCodes(b.map((x) => _pdfDocEncoding[x] ?? x));
+}
+
+/// Whether [b] is well-formed UTF-8 (no overlongs, surrogates or > U+10FFFF).
+bool _isValidUtf8(Uint8List b) {
+  var i = 0;
+  while (i < b.length) {
+    final c = b[i];
+    int n;
+    int min;
+    if (c < 0x80) {
+      i++;
+      continue;
+    } else if (c >= 0xC2 && c <= 0xDF) {
+      n = 1;
+      min = 0x80;
+    } else if (c >= 0xE0 && c <= 0xEF) {
+      n = 2;
+      min = 0x800;
+    } else if (c >= 0xF0 && c <= 0xF4) {
+      n = 3;
+      min = 0x10000;
+    } else {
+      return false;
+    }
+    if (i + n >= b.length) return false;
+    var cp = c & (0x3F >> n);
+    for (var k = 1; k <= n; k++) {
+      final cc = b[i + k];
+      if (cc & 0xC0 != 0x80) return false;
+      cp = (cp << 6) | (cc & 0x3F);
+    }
+    if (cp < min || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
+      return false;
+    }
+    i += n + 1;
+  }
+  return true;
 }
 
 /// PDFDocEncoding characters that differ from Latin-1.
