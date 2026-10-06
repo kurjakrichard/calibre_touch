@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart'
     show applyWorkaroundToOpenSqlite3OnOldAndroidVersions;
 import '../../metadata/calibre.dart';
+import '../../metadata/opf_library_scan.dart';
 import '../../metadata/opf_writer.dart';
 import '../../utils/utils.dart';
 import '../models/book.dart';
@@ -134,9 +135,18 @@ class BookDatasource {
         onCreate: _onCreate,
       ),
     );
-    await _repairSchemaIfIncomplete(database);
-    await database.execute('PRAGMA foreign_keys = ON');
-    await _removeLegacyIdentifiers(database);
+    try {
+      await _repairSchemaIfIncomplete(database);
+      await database.execute('PRAGMA foreign_keys = ON');
+      await _removeLegacyIdentifiers(database);
+    } catch (_) {
+      // A failed open must not keep metadata.db open (a rebuild renames it,
+      // and Windows can't rename an open file).
+      try {
+        await database.close();
+      } catch (_) {}
+      rethrow;
+    }
     return database;
   }
 
@@ -703,6 +713,40 @@ class BookDatasource {
     return updated;
   }
 
+  /// Adds another format (file) to an existing book, like Calibre's
+  /// "Add books > Add files to selected book records": one more `data` row
+  /// with the book's file name ([name]). The file itself must already be in
+  /// the book's folder. Throws if the book already has [format].
+  Future<void> addFormat(int bookId, String format, String name,
+      int size) async {
+    final db = await database;
+    final fmt = format.trim().toUpperCase();
+    await db.transaction((txn) async {
+      final existing = await txn.query('data',
+          where: 'book = ? AND format = ? COLLATE NOCASE',
+          whereArgs: [bookId, fmt],
+          limit: 1);
+      if (existing.isNotEmpty) {
+        throw StateError('The book already has a $fmt format');
+      }
+      await txn.insert('data', {
+        'book': bookId,
+        'format': fmt,
+        'uncompressed_size': size,
+        'name': name,
+      });
+      // books_update_trg calls title_sort() - same drop/recreate as in
+      // updateBook.
+      await txn.execute(DropTriggers.books_books_update_trg_drop.name);
+      try {
+        await txn.update('books', {'last_modified': Calibre.now()},
+            where: 'id = ?', whereArgs: [bookId]);
+      } finally {
+        await txn.execute(Triggers.books_update_trg.name);
+      }
+    });
+  }
+
   Future<int> deleteBook(Book book) async {
     final db = await database;
     // books_delete_trg (AFTER DELETE ON books) already cascades cleanup
@@ -738,6 +782,334 @@ class BookDatasource {
           txn, 'authors', 'books_authors_link', 'author', authors);
       return result;
     });
+  }
+
+  // ---- damaged metadata.db / rebuild from metadata.opf ----
+
+  /// True if the library's metadata.db exists (and is not empty) but is
+  /// damaged, so loading the library failed with [loadError] because of
+  /// the file itself - not because of missing access, a lock, etc.
+  /// Checked with a separate read-only connection and
+  /// `PRAGMA quick_check`.
+  Future<bool> isDatabaseDamaged(Object loadError) async {
+    final path = join(
+        await FileService().libraryRoot(customPath: _customPath), dbName);
+    try {
+      final file = File(path);
+      if (!await file.exists() || await file.length() == 0) return false;
+    } catch (_) {
+      return false;
+    }
+    // Calibre's schema, but a table/column is missing that the app needs.
+    final message = '$loadError'.toLowerCase();
+    if (loadError is LibraryDatabaseDamaged ||
+        message.contains(LibraryDatabaseDamaged.marker) ||
+        message.contains('no such table') ||
+        message.contains('no such column')) {
+      return true;
+    }
+    if (isCorruptionError(loadError)) return true;
+
+    sqfliteFfiInit();
+    Database? db;
+    try {
+      db = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(readOnly: true, singleInstance: false),
+      );
+      final rows = await db.rawQuery('PRAGMA quick_check(1)');
+      final result =
+          rows.isEmpty ? '' : '${rows.first.values.firstOrNull ?? ''}';
+      return result.trim().toLowerCase() != 'ok';
+    } catch (e) {
+      return isCorruptionError(e);
+    } finally {
+      try {
+        await db?.close();
+      } catch (_) {}
+    }
+  }
+
+  /// Result of the last [isDamaged] check that found the file fine, so the
+  /// (full-file) check runs once per library, not on every reload.
+  bool _checkedOk = false;
+
+  /// Checks metadata.db BEFORE the library is opened, without throwing:
+  /// true if the file exists (and is not empty) but is damaged -
+  ///  - not an SQLite database / corrupt (`PRAGMA quick_check`),
+  ///  - Calibre tables present but `books` missing,
+  ///  - `books` empty while `data` still has rows (books table lost).
+  /// A missing or empty file, or a file that can't be opened for another
+  /// reason (permission, lock), is not "damaged".
+  ///
+  /// Uses its own read-only connection, closed again before returning.
+  Future<bool> isDamaged() async {
+    if (_checkedOk || _closed) return false;
+    final path = join(
+        await FileService().libraryRoot(customPath: _customPath), dbName);
+    try {
+      final file = File(path);
+      if (!await file.exists() || await file.length() == 0) return false;
+    } catch (_) {
+      return false;
+    }
+
+    sqfliteFfiInit();
+    Database? db;
+    try {
+      db = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(readOnly: true, singleInstance: false),
+      );
+      final tables = {
+        for (final row in await db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type = 'table' "
+            "AND name NOT LIKE 'sqlite_%'"))
+          row['name'] as String,
+      };
+      if (!tables.contains('books')) {
+        // Only `authors`: the old Android bug, repaired by _open.
+        if (tables.any((t) => t != 'authors')) return true;
+      } else if (tables.contains('data')) {
+        final hasBooks =
+            (await db.rawQuery('SELECT 1 FROM books LIMIT 1')).isNotEmpty;
+        if (!hasBooks &&
+            (await db.rawQuery('SELECT 1 FROM data LIMIT 1')).isNotEmpty) {
+          return true;
+        }
+      }
+      final rows = await db.rawQuery('PRAGMA quick_check(1)');
+      final result =
+          rows.isEmpty ? '' : '${rows.first.values.firstOrNull ?? ''}';
+      if (result.trim().toLowerCase() != 'ok') return true;
+      _checkedOk = true;
+      return false;
+    } catch (e) {
+      return isCorruptionError(e);
+    } finally {
+      try {
+        await db?.close();
+      } catch (_) {}
+    }
+  }
+
+  /// SQLite's "this file is broken" errors: SQLITE_CORRUPT (11),
+  /// SQLITE_NOTADB (26), "database disk image is malformed".
+  static bool isCorruptionError(Object error) {
+    final s = '$error'.toLowerCase();
+    return s.contains('not a database') ||
+        s.contains('malformed') ||
+        s.contains('corrupt') ||
+        s.contains('sqlite_error: 11,') ||
+        s.contains('sqlite_error: 26,') ||
+        s.contains('sqliteexception(11)') ||
+        s.contains('sqliteexception(26)');
+  }
+
+  /// Closes the open connection (if any) without retiring this datasource:
+  /// the next [database] call opens metadata.db again.
+  Future<void> _closeConnection() async {
+    final pending = _dbFuture;
+    _dbFuture = null;
+    if (pending == null) return;
+    try {
+      await (await pending).close();
+    } catch (_) {
+      // The open had failed - nothing to close.
+    }
+  }
+
+  /// Rebuilds metadata.db from the metadata.opf files in the book folders,
+  /// like Calibre's Library maintenance > Restore database:
+  ///  1. every folder with a metadata.opf is read (hidden folders such as
+  ///     .caltrash are skipped);
+  ///  2. the old metadata.db (and its -journal/-wal/-shm files) is renamed
+  ///     to metadata_pre_restore.db (metadata_pre_restore_2.db, ... if that
+  ///     exists already) - nothing is deleted;
+  ///  3. a new metadata.db is created and every book is inserted with its
+  ///     old id, path, uuid, dates and metadata; the book files found in
+  ///     its folder become its formats.
+  ///
+  /// A book whose id is missing or already taken gets a new id (its folder
+  /// keeps its name; its metadata.opf is rewritten with the new id).
+  ///
+  /// Throws [StateError] if no metadata.opf was found (the old database is
+  /// left untouched then). If the rebuild fails after step 2, the new file
+  /// is removed and the old database is put back.
+  ///
+  /// [onProgress] is called with (books inserted, total).
+  Future<LibraryRestoreResult> restoreFromOpf(
+      {void Function(int done, int total)? onProgress}) async {
+    if (_closed) {
+      throw StateError('BookDatasource for "$_customPath" was closed');
+    }
+    final libraryDir =
+        await FileService().libraryRoot(customPath: _customPath);
+    final dbPath = join(libraryDir, dbName);
+
+    final scan = await OpfLibraryScan.scan(libraryDir);
+    if (scan.books.isEmpty) {
+      throw StateError('No metadata.opf files were found in $libraryDir');
+    }
+    onProgress?.call(0, scan.books.length);
+
+    // Release metadata.db (Windows can't rename an open file).
+    await _closeConnection();
+
+    // Keep the damaged database (and its journal: a "hot" journal left next
+    // to the NEW metadata.db would be replayed into it).
+    String? backupPath;
+    if (await File(dbPath).exists()) {
+      backupPath = _freeBackupPath(libraryDir);
+      await File(dbPath).rename(backupPath);
+      for (final suffix in const ['-journal', '-wal', '-shm']) {
+        final companion = File('$dbPath$suffix');
+        if (await companion.exists()) {
+          await companion.rename('$backupPath$suffix');
+        }
+      }
+    }
+
+    try {
+      _checkedOk = false;
+      final db = await database; // creates the Calibre schema
+      final renumbered = await _insertRestoredBooks(db, scan.books, onProgress);
+      for (final id in renumbered) {
+        await _writeOpf(db, id); // the folder's OPF had another id
+      }
+      return LibraryRestoreResult(
+        books: scan.books.length,
+        renumbered: renumbered.length,
+        failedFolders: scan.failedFolders,
+        backupPath: backupPath,
+      );
+    } catch (_) {
+      // Put the old database back, so nothing is lost.
+      await _closeConnection();
+      if (backupPath != null) {
+        try {
+          for (final suffix in const ['', '-journal', '-wal', '-shm']) {
+            final created = File('$dbPath$suffix');
+            if (await created.exists()) await created.delete();
+            final saved = File('$backupPath$suffix');
+            if (await saved.exists()) await saved.rename('$dbPath$suffix');
+          }
+        } catch (_) {}
+      }
+      rethrow;
+    }
+  }
+
+  /// metadata_pre_restore.db, or metadata_pre_restore_<n>.db if taken.
+  static String _freeBackupPath(String libraryDir) {
+    var path = join(libraryDir, 'metadata_pre_restore.db');
+    for (var n = 2; File(path).existsSync(); n++) {
+      path = join(libraryDir, 'metadata_pre_restore_$n.db');
+    }
+    return path;
+  }
+
+  /// Inserts the books found by [OpfLibraryScan] into a new, empty
+  /// database in one transaction. Returns the ids of the books that got a
+  /// new id.
+  Future<List<int>> _insertRestoredBooks(Database db,
+      List<OpfLibraryBook> books, void Function(int, int)? onProgress) async {
+    final renumbered = <int>[];
+    // Books keeping their id go first, so a renumbered book (which gets
+    // the next AUTOINCREMENT id) can never take an id still to come.
+    final seen = <int>{};
+    final keep = <OpfLibraryBook>[];
+    final others = <OpfLibraryBook>[];
+    for (final book in books) {
+      final id = book.id;
+      (id != null && id > 0 && seen.add(id) ? keep : others).add(book);
+    }
+    final keepIds = Set<OpfLibraryBook>.identity()..addAll(keep);
+    await db.transaction((txn) async {
+      // books_insert_trg calls title_sort()/uuid4() - see addBook.
+      await txn.execute(DropTriggers.books_insert_trg_drop.name);
+      try {
+        var done = 0;
+        for (final book in [...keep, ...others]) {
+          final meta = book.metadata;
+          final keepId = keepIds.contains(book);
+          final titleSort = meta.titleSort.isNotEmpty
+              ? meta.titleSort
+              : _titleSort(meta.title, meta.languages);
+          final authorSort = meta.authorSort.isNotEmpty
+              ? meta.authorSort
+              : book.authors.map((a) => a.sort).join(' & ');
+
+          final bookId = await txn.insert('books', {
+            if (keepId) 'id': book.id,
+            'title': meta.title,
+            'sort': titleSort,
+            'author_sort': authorSort,
+            'path': book.path,
+            'uuid': book.uuid.isEmpty ? _newUuid() : book.uuid,
+            'has_cover': book.hasCover ? 1 : 0,
+            'timestamp': book.timestamp,
+            'pubdate': book.pubdate,
+            'last_modified': Calibre.now(),
+            'series_index': meta.seriesIndex ?? 1.0,
+          });
+          if (!keepId) renumbered.add(bookId);
+
+          for (final format in book.formats) {
+            await txn.insert(
+              'data',
+              {
+                'book': bookId,
+                'format': format.format,
+                'uncompressed_size': format.size,
+                'name': format.name,
+              },
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          }
+
+          // Already HTML in metadata.opf.
+          if (meta.description.trim().isNotEmpty) {
+            await txn.insert(
+              'comments',
+              {'book': bookId, 'text': meta.description.trim()},
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+
+          // Created by books_pages_link_create_trigger; let Calibre count.
+          await txn.update('books_pages_link', {'needs_scan': 1},
+              where: 'book = ?', whereArgs: [bookId]);
+
+          for (final author in book.authors) {
+            final authorId = await _getOrCreateId(txn, 'authors', 'name',
+                author.name, {'name': author.name, 'sort': author.sort, 'link': ''});
+            await _linkBook(txn, 'books_authors_link', bookId, 'author', authorId);
+          }
+
+          final rating = meta.rating ?? 0;
+          if (rating > 0) {
+            final ratingId = await _getOrCreateId(txn, 'ratings', 'rating',
+                rating.toString(), {'rating': rating, 'link': ''});
+            await _linkBook(txn, 'books_ratings_link', bookId, 'rating', ratingId);
+          }
+
+          await _setIdentifiers(txn, bookId, meta.identifiers);
+          await _setLanguages(txn, bookId, meta.languages);
+          await _setPublisher(txn, bookId, meta.publisher);
+          await _setSeries(txn, bookId, meta.series, meta.languages);
+          await _setTags(txn, bookId, meta.tags.join(', '));
+
+          done++;
+          if (done % 25 == 0 || done == books.length) {
+            onProgress?.call(done, books.length);
+          }
+        }
+      } finally {
+        await txn.execute(Triggers.books_insert_trg.name);
+      }
+    });
+    return renumbered;
   }
 
   /// Closes this library's database (called by the provider's onDispose
@@ -804,10 +1176,34 @@ class BookDatasource {
   /// first statement of the schema (the `authors` table) was ever run.
   /// Creates every missing table/index/view/trigger and leaves existing
   /// ones (and their data) untouched.
+  ///
+  /// Anything else that lacks `books` - or a `books` table that is empty
+  /// while `data` still has rows (the books table was lost and recreated)
+  /// - is a damaged library: [LibraryDatabaseDamaged] is thrown so the app
+  /// can offer to rebuild it from the metadata.opf files, instead of
+  /// silently "repairing" it into an empty library.
   Future<void> _repairSchemaIfIncomplete(Database db) async {
-    final rows = await db.rawQuery(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'books'");
-    if (rows.isNotEmpty) return;
+    final tables = {
+      for (final row in await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type = 'table' "
+          "AND name NOT LIKE 'sqlite_%'"))
+        row['name'] as String,
+    };
+    if (tables.contains('books')) {
+      final hasBooks =
+          (await db.rawQuery('SELECT 1 FROM books LIMIT 1')).isNotEmpty;
+      if (!hasBooks &&
+          tables.contains('data') &&
+          (await db.rawQuery('SELECT 1 FROM data LIMIT 1')).isNotEmpty) {
+        throw const LibraryDatabaseDamaged(
+            'the books table is empty but the data table has rows');
+      }
+      return;
+    }
+    // Old Android build: only the first statement (authors) ever ran.
+    if (tables.any((t) => t != 'authors')) {
+      throw const LibraryDatabaseDamaged('no such table: books');
+    }
 
     for (final statement in _splitSqlScript(_calibreSchemaSql)) {
       try {
@@ -1560,4 +1956,41 @@ CREATE TRIGGER series_update_trg
       }
     }
   }
+}
+
+/// Outcome of [BookDatasource.restoreFromOpf].
+class LibraryRestoreResult {
+  const LibraryRestoreResult({
+    required this.books,
+    required this.renumbered,
+    required this.failedFolders,
+    required this.backupPath,
+  });
+
+  /// Books put back into the new metadata.db.
+  final int books;
+
+  /// Of those, books that got a new id (missing / duplicate id).
+  final int renumbered;
+
+  /// Book folders whose metadata.opf could not be read (relative paths).
+  final List<String> failedFolders;
+
+  /// Where the old metadata.db was moved (null if there was none).
+  final String? backupPath;
+}
+
+/// metadata.db opens but its content is broken (e.g. the books table is
+/// missing). `BookDatasource.isDatabaseDamaged` recognises it - also after
+/// the repository turned it into a String.
+class LibraryDatabaseDamaged implements Exception {
+  const LibraryDatabaseDamaged(this.reason);
+
+  /// Lower case text every message starts with.
+  static const String marker = 'metadata.db is damaged';
+
+  final String reason;
+
+  @override
+  String toString() => '$marker: $reason';
 }

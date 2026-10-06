@@ -54,6 +54,16 @@ class BookRepositoryImpl implements BookRepository {
   }
 
   @override
+  Future<void> addFormat(
+      int bookId, String format, String name, int size) async {
+    try {
+      await _datasource.addFormat(bookId, format, name, size);
+    } catch (e) {
+      throw '$e';
+    }
+  }
+
+  @override
   Future<void> updateBook(Book book) async {
     try {
       await _datasource.updateBook(book);

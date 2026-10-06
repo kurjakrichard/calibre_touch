@@ -12,6 +12,8 @@ import '../data/data_export.dart';
 import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/epub_document.dart';
+import '../utils/book_documents.dart';
+import '../utils/mobi_document.dart';
 import '../utils/utils.dart';
 
 /// Colour schemes of the reader. Independent of the app's own light/dark
@@ -128,12 +130,14 @@ class ReaderDarkModeButton extends StatelessWidget {
 /// It looks and behaves like a standalone e-book reader app: its own page
 /// colours (light / sepia / dark), no library app bar or drawer, system bars
 /// hidden on phones, and controls that appear only when the page is tapped.
-/// The book is shown one chapter (spine section) at a time; swipe left/right
-/// or use the arrows to change chapter. Reading position and settings are
-/// remembered.
+/// The book is shown one chapter (spine section) at a time. Swipe left/right
+/// turns a page (one screenful); past the end of a chapter the next one
+/// starts, before the start the previous one is shown from its end, so the
+/// book reads continuously. Text is justified (can be turned off). Reading
+/// position and settings are remembered.
 ///
-/// Desktop keys: Esc closes, Left/Right change chapter, Up/Down/PageUp/
-/// PageDown/Space scroll.
+/// Desktop keys: Esc closes, Right/PageDown/Space = next page, Left/PageUp =
+/// previous page, Up/Down scroll a little.
 class ReaderPage extends ConsumerStatefulWidget {
   static Page<void> pageBuilder(BuildContext context, GoRouterState state) =>
       CustomTransitionPage<void>(
@@ -150,7 +154,8 @@ class ReaderPage extends ConsumerStatefulWidget {
   final String? format;
 
   /// Whether the built-in reader can open [book].
-  static bool canRead(Book book) => book.format.toLowerCase() == 'epub';
+  /// EPUB, MOBI/AZW3, TXT, DOCX, ODT, RTF ([BookDocuments]).
+  static bool canRead(Book book) => BookDocuments.canRead(book.format);
 
   @override
   ConsumerState<ReaderPage> createState() => _ReaderPageState();
@@ -160,8 +165,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     with WidgetsBindingObserver {
   static const _fontSizeKey = 'readerFontSize';
   static const _lineHeightKey = 'readerLineHeight';
+  static const _justifyKey = 'readerJustify';
   static const double _maxTextWidth = 760;
-  static const String _nextChapterMarker = 'calibre-touch-next-chapter';
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _focusNode = FocusNode();
@@ -181,6 +186,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
   bool _showControls = false;
   double _fontSize = 18;
   double _lineHeight = 1.5;
+  bool _justify = true;
   /// Picked page colour; null = Auto (follows the app's light/dark theme).
   ReaderTheme? _themeChoice;
 
@@ -208,6 +214,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
         '${_book?.path}/${_book?.filename}';
     _fontSize = prefs.getDouble(_fontSizeKey) ?? _fontSize;
     _lineHeight = prefs.getDouble(_lineHeightKey) ?? _lineHeight;
+    _justify = prefs.getBool(_justifyKey) ?? _justify;
     _themeChoice = ReaderTheme.loadChoice(prefs);
     _appMode = ref.read(modeProvider);
 
@@ -261,7 +268,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
       final bytes = await File(path).readAsBytes();
       // Unzipping and parsing can take a moment for big books - keep the
       // UI responsive.
-      final document = await compute(EpubDocument.parse, bytes);
+      final parser = BookDocuments.parserFor(book.format)!;
+      final document = await compute(parser, bytes);
       if (!mounted) return;
 
       final saved = _prefs.getString(_positionKey)?.split(':');
@@ -311,7 +319,9 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     });
   }
 
-  void _goToSection(int index) {
+  /// Opens chapter [index] at its start, or at its end if [atEnd] (when
+  /// paging backwards from the start of the following chapter).
+  void _goToSection(int index, {bool atEnd = false}) {
     final document = _document;
     if (document == null) return;
     if (index < 0 || index >= document.sections.length) return;
@@ -327,7 +337,60 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     });
     // The old list is gone after this frame.
     WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    if (atEnd) _jumpToEnd();
     _savePosition();
+  }
+
+  /// Jumps to the end of the chapter. The chapter is laid out lazily, so its
+  /// length can grow for a few frames - keep jumping until it settles.
+  void _jumpToEnd([int attempts = 30, double last = -1]) {
+    if (attempts <= 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_scroll.hasClients) {
+        _jumpToEnd(attempts - 1, last);
+        return;
+      }
+      final max = _scroll.position.maxScrollExtent;
+      _scroll.jumpTo(max);
+      if (max != last) _jumpToEnd(attempts - 1, max);
+    });
+  }
+
+  /// How far one page turn scrolls: the visible height minus one line, so
+  /// a line cut at the bottom edge is shown again whole at the top.
+  double get _pageStep {
+    if (!_scroll.hasClients) return 400;
+    final step =
+        _scroll.position.viewportDimension - _fontSize * _lineHeight;
+    return step < 100 ? 100 : step;
+  }
+
+  /// Next screenful; at the end of a chapter, the start of the next one.
+  void _nextPage() {
+    if (!_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (position.pixels >= position.maxScrollExtent - 1) {
+      _goToSection(_section + 1);
+      return;
+    }
+    _scroll.jumpTo(
+        (position.pixels + _pageStep).clamp(0.0, position.maxScrollExtent));
+    _onScroll();
+  }
+
+  /// Previous screenful; at the start of a chapter, the end of the
+  /// previous one.
+  void _previousPage() {
+    if (!_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (position.pixels <= 1) {
+      _goToSection(_section - 1, atEnd: true);
+      return;
+    }
+    _scroll.jumpTo(
+        (position.pixels - _pageStep).clamp(0.0, position.maxScrollExtent));
+    _onScroll();
   }
 
   void _scrollBy(double delta) {
@@ -339,9 +402,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
       curve: Curves.easeOut,
     );
   }
-
-  double get _pageHeight =>
-      _scroll.hasClients ? _scroll.position.viewportDimension * 0.9 : 400;
 
   // ---- controls ----
 
@@ -438,6 +498,17 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
                       onChangeEnd: (v) =>
                           _prefs.setDouble(_lineHeightKey, v),
                     ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary:
+                          Icon(Icons.format_align_justify, color: _theme.text),
+                      title: Text(l10n.readerJustify, style: labelStyle),
+                      value: _justify,
+                      onChanged: (v) {
+                        update(() => _justify = v);
+                        _prefs.setBool(_justifyKey, v);
+                      },
+                    ),
                     const SizedBox(height: 8),
                     Text(l10n.readerTheme, style: labelStyle),
                     const SizedBox(height: 8),
@@ -495,7 +566,9 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     } else if (_loading) {
       body = const Center(child: CircularProgressIndicator());
     } else if (document == null) {
-      body = _buildMessage(l10n.readerOpenError('$_error'));
+      body = _buildMessage(_error is MobiDrmException
+          ? l10n.readerDrmProtected
+          : l10n.readerOpenError('$_error'));
     } else {
       body = Stack(
         children: [
@@ -512,20 +585,15 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
         bindings: {
           const SingleActivator(LogicalKeyboardKey.escape): () =>
               _showControls ? _toggleControls() : _close(),
-          const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
-              _goToSection(_section + 1),
-          const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
-              _goToSection(_section - 1),
+          const SingleActivator(LogicalKeyboardKey.arrowRight): _nextPage,
+          const SingleActivator(LogicalKeyboardKey.arrowLeft): _previousPage,
           const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
               _scrollBy(60),
           const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
               _scrollBy(-60),
-          const SingleActivator(LogicalKeyboardKey.pageDown): () =>
-              _scrollBy(_pageHeight),
-          const SingleActivator(LogicalKeyboardKey.space): () =>
-              _scrollBy(_pageHeight),
-          const SingleActivator(LogicalKeyboardKey.pageUp): () =>
-              _scrollBy(-_pageHeight),
+          const SingleActivator(LogicalKeyboardKey.pageDown): _nextPage,
+          const SingleActivator(LogicalKeyboardKey.space): _nextPage,
+          const SingleActivator(LogicalKeyboardKey.pageUp): _previousPage,
         },
         child: Focus(
           focusNode: _focusNode,
@@ -569,20 +637,15 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
   /// The text of the current chapter.
   Widget _buildText(EpubDocument document) {
     final section = document.sections[_section];
-    final isLast = _section >= document.sections.length - 1;
-    // A marker at the end of the chapter, rendered as a "next chapter"
-    // button by customWidgetBuilder below.
-    final html = isLast
-        ? section.html
-        : '${section.html}<div id="$_nextChapterMarker"></div>';
+    final html = section.html;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _toggleControls,
       onHorizontalDragEnd: (details) {
         final velocity = details.primaryVelocity ?? 0;
-        if (velocity < -300) _goToSection(_section + 1);
-        if (velocity > 300) _goToSection(_section - 1);
+        if (velocity < -300) _nextPage();
+        if (velocity > 300) _previousPage();
       },
       child: SafeArea(
         child: Center(
@@ -606,7 +669,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
                   height: _lineHeight,
                   color: _theme.text,
                 ),
-                rebuildTriggers: [_theme, _fontSize, _lineHeight],
+                rebuildTriggers: [_theme, _fontSize, _lineHeight, _justify],
                 customStylesBuilder: _styles,
                 customWidgetBuilder: (element) =>
                     _customWidget(element, section, document),
@@ -619,36 +682,34 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     );
   }
 
-  /// Keeps the book's colours from fighting the reader theme.
+  /// Text blocks justified (if turned on) unless the book aligns them
+  /// itself, e.g. a centred line.
+  static const _justifiedTags = {
+    'p', 'div', 'li', 'blockquote', 'dd', 'dt', 'section', 'article',
+  };
+
+  /// Keeps the book's colours from fighting the reader theme, and justifies
+  /// paragraphs.
   Map<String, String>? _styles(dom.Element element) {
     final style = element.attributes['style'] ?? '';
+    final result = <String, String>{};
     if (style.contains('color')) {
       final rgb = (_theme.text.toARGB32() & 0xFFFFFF).toRadixString(16);
-      return {
-        'color': '#${rgb.padLeft(6, '0')}',
-        'background-color': 'transparent',
-      };
+      result['color'] = '#${rgb.padLeft(6, '0')}';
+      result['background-color'] = 'transparent';
     }
-    return null;
+    if (_justify &&
+        _justifiedTags.contains(element.localName) &&
+        !style.contains('text-align') &&
+        element.attributes['align'] == null) {
+      result['text-align'] = 'justify';
+    }
+    return result.isEmpty ? null : result;
   }
 
-  /// Images come from inside the EPUB; the end-of-chapter marker becomes a
-  /// button.
+  /// Images come from inside the EPUB.
   Widget? _customWidget(
       dom.Element element, EpubSection section, EpubDocument document) {
-    if (element.id == _nextChapterMarker) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 32),
-        child: Center(
-          child: OutlinedButton.icon(
-            onPressed: () => _goToSection(_section + 1),
-            icon: const Icon(Icons.chevron_right),
-            label: Text(context.l10n.readerNextChapter),
-          ),
-        ),
-      );
-    }
-
     String? src;
     if (element.localName == 'img') {
       src = element.attributes['src'];

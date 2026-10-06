@@ -165,7 +165,7 @@ class OnboardingPageState extends ConsumerState<OnboardingPage> {
     );
   }
 
-  /// Second onboarding page: the settings form (library folder + theme),
+  /// Second onboarding page: the library-folder picker ([SettingsForm]),
   /// embedded directly so first-time setup doubles as the settings screen.
   Widget secondPage() {
     return const SingleChildScrollView(

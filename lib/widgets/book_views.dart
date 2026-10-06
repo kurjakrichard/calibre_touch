@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +9,7 @@ import '../data/data_export.dart';
 import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import '../utils/utils.dart';
+import 'library_rebuild_dialog.dart';
 import 'widgets.dart';
 
 
@@ -13,7 +17,7 @@ import 'widgets.dart';
 // View switching
 // ---------------------------------------------------------------------------
 
-/// Shows the library in the view picked with [BookViewMenuButton].
+/// Shows the library in the view picked with [BookViewSubmenu].
 class BookViewBody extends ConsumerWidget {
   const BookViewBody({super.key, this.count = 1});
 
@@ -57,8 +61,10 @@ class _LibraryEmptyViewState extends ConsumerState<LibraryEmptyView> {
     super.initState();
     // The user may grant "All files access" in the system settings and come
     // back: load the library again when the app is resumed.
+    // Only for missing storage access: on desktop "resume" fires on every
+    // window focus, and reloading a broken library each time floods errors.
     _lifecycle = AppLifecycleListener(onResume: () {
-      if (widget.state.error != null) {
+      if (widget.state.error?.needsStoragePermission ?? false) {
         ref.read(booksProvider.notifier).getBooks();
       }
     });
@@ -99,6 +105,8 @@ class _LibraryEmptyViewState extends ConsumerState<LibraryEmptyView> {
       message = l10n.libraryEmpty;
     } else if (error.needsStoragePermission) {
       message = l10n.libraryNeedsStorage;
+    } else if (error.damagedDatabase) {
+      message = l10n.libraryDamaged;
     } else {
       message = l10n.libraryLoadError(error.message);
     }
@@ -141,7 +149,20 @@ class _LibraryEmptyViewState extends ConsumerState<LibraryEmptyView> {
                       icon: const Icon(Icons.lock_open),
                       label: Text(l10n.grantAccess),
                     )
-                  else if (error != null)
+                  else if (error?.damagedDatabase ?? false) ...[
+                    FilledButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => LibraryRebuildDialog.offer(context, ref),
+                      icon: const Icon(Icons.build_outlined),
+                      label: Text(l10n.rebuildDatabase),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _retry,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(l10n.retry),
+                    ),
+                  ] else if (error != null)
                     FilledButton.icon(
                       onPressed: _busy ? null : _retry,
                       icon: const Icon(Icons.refresh),
@@ -174,32 +195,30 @@ String bookViewLabel(AppLocalizations l10n, BookView view) {
   }
 }
 
-/// App bar button that switches between the views. Its icon shows the
-/// current view.
-class BookViewMenuButton extends ConsumerWidget {
-  const BookViewMenuButton({super.key});
+/// "Change view" submenu of the home page menu ([HomeMenuButton]): picks
+/// the view the library is shown in. Its icon shows the current view.
+class BookViewSubmenu extends ConsumerWidget {
+  const BookViewSubmenu({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final current = ref.watch(bookViewProvider);
+    // Read the notifier now: MenuItemButton calls onPressed only after the
+    // menu has closed, when this widget (and its ref) is already disposed.
+    final viewNotifier = ref.read(bookViewProvider.notifier);
     final l10n = context.l10n;
-    return PopupMenuButton<BookView>(
-      tooltip: l10n.changeView,
-      icon: Icon(current.icon),
-      initialValue: current,
-      onSelected: (view) => ref.read(bookViewProvider.notifier).setView(view),
-      itemBuilder: (context) => [
+    return SubmenuButton(
+      leadingIcon: Icon(current.icon),
+      menuChildren: [
         for (final view in BookView.values)
-          PopupMenuItem<BookView>(
-            value: view,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(view.icon),
-              title: Text(bookViewLabel(l10n, view)),
-              trailing: view == current ? const Icon(Icons.check) : null,
-            ),
+          MenuItemButton(
+            leadingIcon: Icon(view.icon),
+            trailingIcon: view == current ? const Icon(Icons.check) : null,
+            onPressed: () => viewNotifier.setView(view),
+            child: Text(bookViewLabel(l10n, view)),
           ),
       ],
+      child: Text(l10n.changeView),
     );
   }
 }
@@ -380,6 +399,11 @@ class BookColumn {
 
 /// Sortable table of the visible books. Only the rows on screen are built,
 /// so it stays fast with large libraries. Tap a header to sort.
+///
+/// Scrolling sideways (when the columns don't fit): Shift + mouse wheel,
+/// mouse wheel over the header, touchpad, the always visible horizontal
+/// scrollbar (desktop), or Left/Right arrows after clicking the table.
+/// Up/Down, PgUp/PgDn, Home/End scroll vertically.
 class BookTable extends ConsumerStatefulWidget {
   const BookTable({super.key, required this.columns});
 
@@ -391,6 +415,91 @@ class BookTable extends ConsumerStatefulWidget {
 
 class _BookTableState extends ConsumerState<BookTable> {
   static const double _rowHeight = 44;
+
+  /// Left/Right arrow scroll step in pixels.
+  static const double _keyStep = 100;
+
+  final ScrollController _hController = ScrollController();
+  final ScrollController _vController = ScrollController();
+  final FocusNode _focusNode = FocusNode(debugLabel: 'BookTable');
+
+  bool get _isDesktop => switch (defaultTargetPlatform) {
+        TargetPlatform.windows ||
+        TargetPlatform.linux ||
+        TargetPlatform.macOS =>
+          true,
+        _ => false,
+      };
+
+  @override
+  void dispose() {
+    _hController.dispose();
+    _vController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _scrollBy(ScrollController controller, double delta) {
+    if (!controller.hasClients) return;
+    final position = controller.position;
+    final target = (position.pixels + delta)
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
+    if (target != position.pixels) position.jumpTo(target);
+  }
+
+  void _scrollTo(ScrollController controller, {required bool end}) {
+    if (!controller.hasClients) return;
+    final position = controller.position;
+    position.jumpTo(end ? position.maxScrollExtent : position.minScrollExtent);
+  }
+
+  /// Keyboard scrolling (desktop). The table gets the focus when clicked.
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final page = _vController.hasClients
+        ? (_vController.position.viewportDimension - _rowHeight)
+            .clamp(_rowHeight, double.infinity)
+        : _rowHeight;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      _scrollBy(_hController, -_keyStep);
+    } else if (key == LogicalKeyboardKey.arrowRight) {
+      _scrollBy(_hController, _keyStep);
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      _scrollBy(_vController, -_rowHeight);
+    } else if (key == LogicalKeyboardKey.arrowDown) {
+      _scrollBy(_vController, _rowHeight);
+    } else if (key == LogicalKeyboardKey.pageUp) {
+      _scrollBy(_vController, -page);
+    } else if (key == LogicalKeyboardKey.pageDown) {
+      _scrollBy(_vController, page);
+    } else if (key == LogicalKeyboardKey.home) {
+      _scrollTo(_vController, end: false);
+    } else if (key == LogicalKeyboardKey.end) {
+      _scrollTo(_vController, end: true);
+    } else {
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
+  }
+
+  /// Mouse wheel over the header scrolls sideways (the header has nothing
+  /// to scroll vertically). Registered before the horizontal scroll view's
+  /// own handler, so the wheel's vertical delta is used.
+  void _onHeaderPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !_hController.hasClients) return;
+    final delta = event.scrollDelta.dy != 0
+        ? event.scrollDelta.dy
+        : event.scrollDelta.dx;
+    if (delta == 0) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (e) {
+      _scrollBy(_hController, (e as PointerScrollEvent).scrollDelta.dy != 0
+          ? e.scrollDelta.dy
+          : e.scrollDelta.dx);
+    });
+  }
 
   int? _sortColumn;
   bool _ascending = true;
@@ -472,39 +581,43 @@ class _BookTableState extends ConsumerState<BookTable> {
         );
       }
 
-      final header = Material(
-        color: isDark ? darkListBackground : panelColor,
-        child: SizedBox(
-          height: _rowHeight,
-          child: Row(
-            children: [
-              for (var i = 0; i < columns.length; i++)
-                InkWell(
-                  onTap: () => _onHeaderTap(i),
-                  child: SizedBox(
-                    height: _rowHeight,
-                    child: cell(
-                      columns[i].label,
-                      widths[i],
-                      style: headerStyle,
-                      icon: _sortColumn == i
-                          ? Icon(
-                              _ascending
-                                  ? Icons.arrow_upward
-                                  : Icons.arrow_downward,
-                              size: 16,
-                              color: headerStyle?.color,
-                            )
-                          : null,
+      final header = Listener(
+        onPointerSignal: _onHeaderPointerSignal,
+        child: Material(
+          color: isDark ? darkListBackground : panelColor,
+          child: SizedBox(
+            height: _rowHeight,
+            child: Row(
+              children: [
+                for (var i = 0; i < columns.length; i++)
+                  InkWell(
+                    onTap: () => _onHeaderTap(i),
+                    child: SizedBox(
+                      height: _rowHeight,
+                      child: cell(
+                        columns[i].label,
+                        widths[i],
+                        style: headerStyle,
+                        icon: _sortColumn == i
+                            ? Icon(
+                                _ascending
+                                    ? Icons.arrow_upward
+                                    : Icons.arrow_downward,
+                                size: 16,
+                                color: headerStyle?.color,
+                              )
+                            : null,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       );
 
       final body = ListView.builder(
+        controller: _vController,
         itemCount: books.length,
         itemExtent: _rowHeight,
         itemBuilder: (context, index) {
@@ -543,12 +656,44 @@ class _BookTableState extends ConsumerState<BookTable> {
         ),
       );
 
-      return minWidth > constraints.maxWidth
-          ? SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: table,
+      final scrollsSideways = minWidth > constraints.maxWidth;
+
+      // The vertical list's scrollbar would sit at the right edge of the
+      // (wide) table, off screen. Both scrollbars are drawn here instead,
+      // at the edges of the visible area; the automatic ones are turned off.
+      Widget content = scrollsSideways
+          ? Scrollbar(
+              controller: _hController,
+              thumbVisibility: _isDesktop,
+              notificationPredicate: (n) => n.metrics.axis == Axis.horizontal,
+              child: SingleChildScrollView(
+                controller: _hController,
+                scrollDirection: Axis.horizontal,
+                child: table,
+              ),
             )
           : table;
+
+      content = Scrollbar(
+        controller: _vController,
+        notificationPredicate: (n) => n.metrics.axis == Axis.vertical,
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: content,
+        ),
+      );
+
+      if (!_isDesktop) return content;
+      return Focus(
+        focusNode: _focusNode,
+        onKeyEvent: _onKey,
+        child: Listener(
+          onPointerDown: (_) {
+            if (!_focusNode.hasFocus) _focusNode.requestFocus();
+          },
+          child: content,
+        ),
+      );
     });
   }
 }

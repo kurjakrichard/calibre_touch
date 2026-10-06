@@ -58,6 +58,11 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String unsupportedFormat(String file) {
+    return 'Ez a fájltípus nem e-könyv formátum: $file';
+  }
+
+  @override
   String get changeView => 'Nézet váltása';
 
   @override
@@ -305,6 +310,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get readerLineSpacing => 'Sorköz';
 
   @override
+  String get readerJustify => 'Sorkizárt szöveg';
+
+  @override
   String get readerTheme => 'Oldal színe';
 
   @override
@@ -342,8 +350,12 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get readerDrmProtected =>
+      'Ez a könyv DRM-védett, ezért nem nyitható meg.';
+
+  @override
   String readerUnsupported(String format) {
-    return 'A beépített olvasó csak EPUB könyveket tud megnyitni (ez $format).';
+    return 'A beépített olvasó nem tud $format könyveket megnyitni.';
   }
 
   @override
@@ -383,12 +395,20 @@ class AppLocalizationsHu extends AppLocalizations {
   String get builtInReader => 'Beépített olvasó';
 
   @override
-  String get builtInReaderOn =>
-      'Az EPUB és PDF könyvek a Calibre Touch-ban nyílnak meg';
+  String builtInReaderOn(String formats) {
+    return 'Calibre Touch-ban nyílik meg: $formats';
+  }
 
   @override
   String get builtInReaderOff =>
-      'Az EPUB és PDF könyvek a rendszer alapértelmezett alkalmazásában nyílnak meg';
+      'A könyvek a rendszer alapértelmezett alkalmazásában nyílnak meg';
+
+  @override
+  String get openLastBook => 'Utolsó könyv megnyitása induláskor';
+
+  @override
+  String get openLastBookSubtitle =>
+      'Indításkor folytatja az utoljára olvasott könyvet';
 
   @override
   String get libraryEmpty => 'Ebben a könyvtárban még nincsenek könyvek.';
@@ -448,5 +468,82 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String invalidIdentifier(String value) {
     return 'Hibás azonosító: $value';
+  }
+
+  @override
+  String get alreadyInLibrary => 'Már szerepel a könyvtárban';
+
+  @override
+  String alreadyInLibraryText(String title, String author, String formats) {
+    return '„$title” ($author) már szerepel a könyvtárban ($formats).';
+  }
+
+  @override
+  String get openLibraryCopy => 'A könyvtári példány megnyitása';
+
+  @override
+  String get showLibraryCopy => 'A könyvtári példány megjelenítése';
+
+  @override
+  String addAsFormat(String format) {
+    return '$format hozzáadása ehhez a könyvhöz';
+  }
+
+  @override
+  String get addAsNewBook => 'Hozzáadás új könyvként';
+
+  @override
+  String get cancel => 'Mégse';
+
+  @override
+  String formatAdded(String format) {
+    return '$format hozzáadva a könyvhöz';
+  }
+
+  @override
+  String booksAdded(int count) {
+    return '$count könyv hozzáadva';
+  }
+
+  @override
+  String get libraryDamaged => 'A könyvtár adatbázisa (metadata.db) sérült.';
+
+  @override
+  String get databaseDamagedTitle => 'A könyvtár adatbázisa sérült';
+
+  @override
+  String get databaseDamagedText =>
+      'A metadata.db létezik, de nem sikerült megnyitni. Szeretnéd újraépíteni az adatbázist a könyvmappákban lévő metadata.opf fájlokból? A sérült fájl biztonsági másolatként megmarad.';
+
+  @override
+  String get rebuildDatabase => 'Adatbázis újraépítése';
+
+  @override
+  String get rebuildingDatabase =>
+      'Az adatbázis újraépítése a metadata.opf fájlokból…';
+
+  @override
+  String rebuildDone(int count) {
+    return '$count könyv helyreállítva.';
+  }
+
+  @override
+  String rebuildRenumbered(int count) {
+    return '$count könyv új azonosítót kapott (hiányzó vagy ismétlődő azonosító).';
+  }
+
+  @override
+  String rebuildSkipped(int count) {
+    return '$count könyvmappát nem sikerült beolvasni:';
+  }
+
+  @override
+  String rebuildBackup(String file) {
+    return 'A régi adatbázis mentése: $file';
+  }
+
+  @override
+  String rebuildFailed(String error) {
+    return 'Az adatbázis újraépítése nem sikerült: $error';
   }
 }

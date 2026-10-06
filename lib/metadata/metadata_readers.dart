@@ -5,7 +5,11 @@ import 'package:path/path.dart' as p;
 import 'book_metadata.dart';
 import 'metadata_reader.dart';
 import 'readers/epub_metadata_reader.dart';
+import 'readers/fb2_metadata_reader.dart';
+import 'readers/mobi_metadata_reader.dart';
+import 'readers/office_metadata_readers.dart';
 import 'readers/pdf_metadata_reader.dart';
+import 'readers/txt_metadata_reader.dart';
 
 /// Entry point for reading metadata from book files:
 ///
@@ -22,6 +26,12 @@ class MetadataReaders {
   static final List<MetadataReader> _readers = [
     const EpubMetadataReader(),
     const PdfMetadataReader(),
+    const MobiMetadataReader(),
+    const TxtMetadataReader(),
+    const DocxMetadataReader(),
+    const OdtMetadataReader(),
+    const RtfMetadataReader(),
+    const Fb2MetadataReader(),
   ];
 
   /// Adds a reader. Registered later = asked first, so a reader can also

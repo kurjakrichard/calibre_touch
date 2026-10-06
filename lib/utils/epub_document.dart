@@ -54,6 +54,24 @@ class EpubDocument {
     required this.files,
   });
 
+  /// A document built from another format (MOBI/AZW3, see
+  /// `MobiDocument`), so the reader can show it like an EPUB. Hrefs in
+  /// [sections], [toc] and [files] use the same path rules as an EPUB.
+  factory EpubDocument.fromParts({
+    required String title,
+    required String author,
+    required List<EpubSection> sections,
+    required List<EpubTocEntry> toc,
+    required Map<String, Uint8List> files,
+  }) =>
+      EpubDocument._(
+        title: title,
+        author: author,
+        sections: sections,
+        toc: toc,
+        files: files,
+      );
+
   final String title;
   final String author;
   final List<EpubSection> sections;

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 // ignore: depend_on_referenced_packages
@@ -123,13 +124,78 @@ class FileService {
       if (Platform.isLinux) {
         return (await Process.run('xdg-open', [folder])).exitCode == 0;
       }
-      // Android / iOS: ask the system for an app that can show the folder.
+      if (Platform.isAndroid) {
+        return await _openFolderAndroid(folder);
+      }
+      // iOS: ask the system for an app that can show the folder.
       final result = await OpenFilex.open(folder);
       return result.type == ResultType.done;
     } catch (e) {
       debugPrint('Could not open folder $folder: $e');
       return false;
     }
+  }
+
+  /// Android has no "show this folder" intent that every file manager
+  /// understands (Google Files, for example, ignores the path and opens
+  /// Downloads). The system Files app (DocumentsUI) does: ACTION_VIEW with a
+  /// DocumentsContract document URI of the folder and the directory MIME
+  /// type. So we target DocumentsUI explicitly, then fall back to any app
+  /// that accepts that intent, then to OpenFilex.
+  Future<bool> _openFolderAndroid(String folder) async {
+    final uri = androidDocumentUri(folder);
+    if (uri != null) {
+      const dirMime = 'vnd.android.document/directory';
+      for (final pkg in const [
+        'com.google.android.documentsui',
+        'com.android.documentsui',
+        null, // any app that handles it
+      ]) {
+        final intent = AndroidIntent(
+          action: 'android.intent.action.VIEW',
+          data: uri,
+          type: dirMime,
+          package: pkg,
+        );
+        try {
+          if (await intent.canResolveActivity() ?? false) {
+            await intent.launch();
+            return true;
+          }
+        } catch (e) {
+          debugPrint('Folder intent ($pkg) failed: $e');
+        }
+      }
+    }
+    final result = await OpenFilex.open(folder);
+    return result.type == ResultType.done;
+  }
+
+  /// `content://com.android.externalstorage.documents/document/<id>` for a
+  /// folder on shared storage, or null if [folder] is not on it (e.g. the
+  /// app's private documents directory, which no file manager can show).
+  ///   /storage/emulated/0/Books/A  -> primary:Books/A
+  ///   /sdcard/Books/A              -> primary:Books/A
+  ///   /storage/1A2B-3C4D/Books/A   -> 1A2B-3C4D:Books/A   (SD card)
+  @visibleForTesting
+  static String? androidDocumentUri(String folder) {
+    final path = p.posix.normalize(folder.replaceAll('\\', '/'));
+    String? docId;
+    final primary =
+        RegExp(r'^/(?:storage/emulated/0|sdcard|storage/self/primary)(?:/(.*))?$')
+            .firstMatch(path);
+    if (primary != null) {
+      docId = 'primary:${primary.group(1) ?? ''}';
+    } else {
+      final volume = RegExp(r'^/storage/([0-9A-Fa-f]{4}-[0-9A-Fa-f]{4})(?:/(.*))?$')
+          .firstMatch(path);
+      if (volume != null) {
+        docId = '${volume.group(1)}:${volume.group(2) ?? ''}';
+      }
+    }
+    if (docId == null) return null;
+    return 'content://com.android.externalstorage.documents/document/'
+        '${Uri.encodeComponent(docId)}';
   }
 
   Future<File> copyFile({

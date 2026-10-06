@@ -7,10 +7,13 @@ import 'providers/providers.dart';
 import 'utils/utils.dart';
 
 late SharedPreferences prefs;
-void main() async {
+void main(List<String> args) async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   prefs = await SharedPreferences.getInstance();
+  // Book files opened with Calibre Touch (Android intent / Windows command
+  // line); the home page adds them to the library.
+  await IncomingFiles.init(args);
   runApp(
     ProviderScope(
       observers: [

@@ -1,0 +1,12 @@
+name: dart_mobi
+description: A port of libmobi in dart. Vendored copy of 1.0.2 with Calibre Touch fixes (see CHANGELOG.md).
+version: 1.0.2+calibretouch.1
+repository: https://github.com/whirlun/dart-mobi
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  collection: ^1.19.0
+  archive: ^4.0.1

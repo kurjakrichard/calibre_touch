@@ -57,6 +57,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String unsupportedFormat(String file) {
+    return 'This file type isn\'t an e-book format: $file';
+  }
+
+  @override
   String get changeView => 'Change view';
 
   @override
@@ -304,6 +309,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get readerLineSpacing => 'Line spacing';
 
   @override
+  String get readerJustify => 'Justified text';
+
+  @override
   String get readerTheme => 'Page colour';
 
   @override
@@ -341,8 +349,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get readerDrmProtected =>
+      'This book is DRM-protected, so it can\'t be opened.';
+
+  @override
   String readerUnsupported(String format) {
-    return 'The built-in reader can only open EPUB books (this one is $format).';
+    return 'The built-in reader can\'t open $format books.';
   }
 
   @override
@@ -382,11 +394,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get builtInReader => 'Built-in reader';
 
   @override
-  String get builtInReaderOn => 'EPUB and PDF books open in Calibre Touch';
+  String builtInReaderOn(String formats) {
+    return 'Opens in Calibre Touch: $formats';
+  }
 
   @override
-  String get builtInReaderOff =>
-      'EPUB and PDF books open in the system\'s default app';
+  String get builtInReaderOff => 'Books open in the system\'s default app';
+
+  @override
+  String get openLastBook => 'Open last book on startup';
+
+  @override
+  String get openLastBookSubtitle =>
+      'Continue reading the last book when the app starts';
 
   @override
   String get libraryEmpty => 'There are no books in this library yet.';
@@ -446,5 +466,82 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String invalidIdentifier(String value) {
     return 'Invalid identifier: $value';
+  }
+
+  @override
+  String get alreadyInLibrary => 'Already in your library';
+
+  @override
+  String alreadyInLibraryText(String title, String author, String formats) {
+    return '\"$title\" by $author is already in the library ($formats).';
+  }
+
+  @override
+  String get openLibraryCopy => 'Open the library copy';
+
+  @override
+  String get showLibraryCopy => 'Show the library copy';
+
+  @override
+  String addAsFormat(String format) {
+    return 'Add $format to this book';
+  }
+
+  @override
+  String get addAsNewBook => 'Add as a new book';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String formatAdded(String format) {
+    return '$format added to the book';
+  }
+
+  @override
+  String booksAdded(int count) {
+    return '$count books added';
+  }
+
+  @override
+  String get libraryDamaged => 'The library database (metadata.db) is damaged.';
+
+  @override
+  String get databaseDamagedTitle => 'The library database is damaged';
+
+  @override
+  String get databaseDamagedText =>
+      'metadata.db exists but could not be opened. Would you like to rebuild the database from the metadata.opf files in the book folders? The damaged file is kept as a backup.';
+
+  @override
+  String get rebuildDatabase => 'Rebuild database';
+
+  @override
+  String get rebuildingDatabase =>
+      'Rebuilding the database from metadata.opf files…';
+
+  @override
+  String rebuildDone(int count) {
+    return '$count books restored.';
+  }
+
+  @override
+  String rebuildRenumbered(int count) {
+    return '$count books got a new id (missing or duplicate id).';
+  }
+
+  @override
+  String rebuildSkipped(int count) {
+    return '$count book folders could not be read:';
+  }
+
+  @override
+  String rebuildBackup(String file) {
+    return 'The old database was saved as $file.';
+  }
+
+  @override
+  String rebuildFailed(String error) {
+    return 'Rebuilding the database failed: $error';
   }
 }

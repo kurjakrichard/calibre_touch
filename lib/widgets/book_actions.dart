@@ -131,41 +131,65 @@ class BookActions {
   static void showMenu(BuildContext context, WidgetRef ref, Book book) {
     ref.read(selectedBookProvider.notifier).setSelectedBook(book);
     final l10n = context.l10n;
+    final readInApp =
+        canReadInApp(book, useBuiltIn: ref.read(useBuiltInReaderProvider));
 
-    Widget option(String label, VoidCallback onPressed) => SimpleDialogOption(
-          child: TextButton(
+    // Icon + label, left-aligned so the icons line up in one column.
+    // [color] tints both (used for Delete).
+    Widget option(IconData icon, String label, VoidCallback onPressed,
+            {Color? color}) =>
+        SimpleDialogOption(
+          child: TextButton.icon(
             onPressed: onPressed,
-            child: Text(label,
+            style: TextButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              foregroundColor: color,
+            ),
+            icon: Icon(icon),
+            label: Text(label,
                 style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.start),
           ),
         );
 
+    // The options form one block centred in the dialog: IntrinsicWidth makes
+    // every button as wide as the widest one, and each is left-aligned, so
+    // the icons and labels all start at the same position.
     showDialog(
       context: context,
       builder: (dialogContext) => SimpleDialog(
         children: [
-          option(
-              canReadInApp(book,
-                      useBuiltIn: ref.read(useBuiltInReaderProvider))
-                  ? l10n.read
-                  : l10n.open, () {
-            Navigator.of(dialogContext).pop();
-            open(context, ref, book);
-          }),
-          option(l10n.edit, () {
-            Navigator.of(dialogContext).pop();
-            context.pushNamed(Routes.updateBook.name);
-          }),
-          option(l10n.details, () {
-            Navigator.of(dialogContext).pop();
-            context.pushNamed(Routes.bookDetails.name);
-          }),
-          option(l10n.delete, () {
-            Navigator.of(dialogContext).pop();
-            AppAlerts.showAlertDeleteDialog(
-                context: context, ref: ref, book: book);
-          }),
+          Center(
+            child: IntrinsicWidth(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Same icons as the format chooser: built-in reader vs
+                  // system app.
+                  option(readInApp ? Icons.menu_book : Icons.open_in_new,
+                      readInApp ? l10n.read : l10n.open, () {
+                    Navigator.of(dialogContext).pop();
+                    open(context, ref, book);
+                  }),
+                  option(Icons.edit, l10n.edit, () {
+                    Navigator.of(dialogContext).pop();
+                    context.pushNamed(Routes.updateBook.name);
+                  }),
+                  option(Icons.info_outline, l10n.details, () {
+                    Navigator.of(dialogContext).pop();
+                    context.pushNamed(Routes.bookDetails.name);
+                  }),
+                  option(Icons.delete, l10n.delete,
+                      color: Theme.of(context).colorScheme.error, () {
+                    Navigator.of(dialogContext).pop();
+                    AppAlerts.showAlertDeleteDialog(
+                        context: context, ref: ref, book: book);
+                  }),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -1,0 +1,2 @@
+# Vendored third-party code: no lint rules, so its style doesn't flood the
+# Problems view. Only the analyzer's own errors and warnings are shown.

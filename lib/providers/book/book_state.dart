@@ -9,13 +9,19 @@ class LibraryLoadError extends Equatable {
   /// Technical error text (empty for [needsStoragePermission]).
   final String message;
 
+  /// metadata.db exists but is damaged - it can be rebuilt from the
+  /// metadata.opf files (`BookNotifier.rebuildFromOpf`).
+  final bool damagedDatabase;
+
   const LibraryLoadError.storagePermission()
       : needsStoragePermission = true,
+        damagedDatabase = false,
         message = '';
-  const LibraryLoadError.failed(this.message) : needsStoragePermission = false;
+  const LibraryLoadError.failed(this.message, {this.damagedDatabase = false})
+      : needsStoragePermission = false;
 
   @override
-  List<Object?> get props => [needsStoragePermission, message];
+  List<Object?> get props => [needsStoragePermission, message, damagedDatabase];
 }
 
 class BookState extends Equatable {

@@ -1,12 +1,16 @@
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../data/data_export.dart';
 import '../l10n/l10n.dart';
-import '../metadata/metadata.dart';
 import '../providers/providers.dart';
+import '../utils/incoming_files.dart';
 import '../utils/utils.dart';
+import '../widgets/library_rebuild_dialog.dart';
 import '../widgets/widgets.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -25,12 +29,98 @@ class _HomeState extends ConsumerState<HomePage> {
   Book? selectedBook;
   // ignore: unused_field
   bool _isLoading = false;
-  var allowedExtensions = ['pdf', 'odt', 'epub', 'mobi'];
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
 
+  /// The "open last book on startup" check runs only once per app run,
+  /// not every time the home page is rebuilt or re-created.
+  static bool _startupChecked = false;
+
+  /// Files opened with Calibre Touch from other apps (IncomingFiles).
+  StreamSubscription<void>? _incomingSub;
+  bool _handlingIncoming = false;
+
+  /// Watches for a damaged metadata.db (see [_offerRebuild]).
+  ProviderSubscription<bool>? _damagedSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_startupChecked) {
+      _startupChecked = true;
+      // Started to open a file: that book wins over "open last book".
+      if (!IncomingFiles.hasPending) {
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _openLastBookOnStart());
+      }
+    }
+    // metadata.db exists but can't be opened: offer to rebuild it from the
+    // metadata.opf files. fireImmediately: the library may have failed to
+    // load before this page was built.
+    _damagedSub = ref.listenManual<bool>(
+      booksProvider.select((s) => s.error?.damagedDatabase ?? false),
+      (previous, damaged) {
+        if (damaged && previous != true) _offerRebuild();
+      },
+      fireImmediately: true,
+    );
+    _incomingSub = IncomingFiles.onArrived.listen((_) => _handleIncoming());
+    if (IncomingFiles.hasPending) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _handleIncoming());
+    }
+  }
+
+  /// "The library database is damaged - rebuild it from metadata.opf?"
+  void _offerRebuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) LibraryRebuildDialog.offer(context, ref);
+    });
+  }
+
+  /// Adds files opened with Calibre Touch to the library and opens the
+  /// library copy (see BookImport), one "open" / "share" action at a time.
+  Future<void> _handleIncoming() async {
+    if (_handlingIncoming) return;
+    _handlingIncoming = true;
+    try {
+      while (mounted && IncomingFiles.hasPending) {
+        await BookImport.waitForLibrary(ref);
+        if (!mounted) break;
+        final files = IncomingFiles.takeNext();
+        if (files == null) break;
+        try {
+          await BookImport.importFiles(context, ref, files, open: true);
+        } finally {
+          for (final file in files) {
+            await IncomingFiles.release(file);
+          }
+        }
+      }
+    } finally {
+      _handlingIncoming = false;
+    }
+  }
+
+  /// Settings > "Open last book on startup": once the library has loaded,
+  /// opens the book last read in the built-in reader (if it still exists).
+  Future<void> _openLastBookOnStart() async {
+    if (!mounted || !ref.read(openLastBookOnStartProvider)) return;
+    await BookImport.waitForLibrary(ref);
+    if (!mounted || IncomingFiles.hasPending) return;
+    final lastId = ref.read(lastReadBookProvider);
+    if (lastId == null) return;
+    final book = ref
+        .read(booksProvider)
+        .books
+        .where((b) => b.id == lastId)
+        .firstOrNull;
+    if (book != null) BookActions.open(context, ref, book);
+  }
+
   @override
   void dispose() {
+    _incomingSub?.cancel();
+    _damagedSub?.close();
     _searchController.dispose();
     super.dispose();
   }
@@ -49,10 +139,9 @@ class _HomeState extends ConsumerState<HomePage> {
       drawer: const DrawerWidget(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final picked = await pickFile();
-          if (picked != null) {
-            // ignore: use_build_context_synchronously
-            _importBook(picked.path, picked.metadata, context);
+          final path = await pickFile();
+          if (path != null && context.mounted) {
+            await BookImport.importFiles(context, ref, [path], open: false);
           }
         },
         child: const Icon(Icons.add),
@@ -97,7 +186,6 @@ class _HomeState extends ConsumerState<HomePage> {
               ),
             ),
       actions: <Widget>[
-        const BookViewMenuButton(),
         _isSearching
             ? IconButton(
                 tooltip: l10n.closeSearch,
@@ -117,6 +205,7 @@ class _HomeState extends ConsumerState<HomePage> {
                   });
                 },
                 icon: const Icon(Icons.search)),
+        const HomeMenuButton(),
       ],
     );
   }
@@ -159,83 +248,38 @@ class _HomeState extends ConsumerState<HomePage> {
     return BookViewBody(count: count);
   }
 
-  /// Adds the picked file to the library (see BookNotifier.importFile).
-  Future<void> _importBook(
-      String sourcePath, BookMetadata metadata, BuildContext context) async {
-    final l10n = context.l10n;
-    final int id;
-    try {
-      id = await ref
-          .read(booksProvider.notifier)
-          .importFile(sourcePath, metadata);
-    } catch (e, st) {
-      debugPrint('Import failed: $e\n$st');
-      if (context.mounted) {
-        AppAlerts.displaySnackbar(context, l10n.importFailed('$e'));
-      }
-      return;
-    }
-    final saved = await ref.read(booksProvider.notifier).getBook(id);
-    if (saved != null) {
-      ref.read(selectedBookProvider.notifier).setSelectedBook(saved);
-    }
-    if (context.mounted) {
-      AppAlerts.displaySnackbar(context, l10n.bookAdded);
-      context.go(Routes.home.path);
-    }
-  }
-
-  Future<bool> _confirmDuplicate() async {
-    final l10n = context.l10n;
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        content: Text(l10n.duplicateTitle),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.yes),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.no),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
-  }
-
-  /// Lets the user pick a book file and reads its metadata (title,
-  /// authors, cover, ...). Null if cancelled or a duplicate was declined.
-  Future<({String path, BookMetadata metadata})?> pickFile() async {
+  /// Lets the user pick a book file. Null if cancelled. (Reading the
+  /// metadata and the duplicate check happen in BookImport.)
+  Future<String?> pickFile() async {
     setState(() => _isLoading = true);
     try {
-      final picked = await FilePicker.pickFile(
-        type: FileType.custom,
-        allowedExtensions: allowedExtensions,
-      );
+      // Every format Calibre knows (Formats). On Android/iOS the picker
+      // filters by MIME type and drops extensions it doesn't know (mobi,
+      // azw3, fb2, ...), so there any file can be picked and the extension
+      // is checked afterwards.
+      final mobile = defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS;
+      final picked = mobile
+          ? await FilePicker.pickFile(type: FileType.any)
+          : await FilePicker.pickFile(
+              type: FileType.custom,
+              allowedExtensions: Formats.extensions.toList()..sort(),
+            );
       if (picked == null) return null; // user cancelled
 
       final sourcePath = picked.path;
       if (sourcePath == null) {
         throw Exception('The picker returned no file path');
       }
-      debugPrint('Picked: ${picked.name} -> $sourcePath');
-
-      final metadata = await MetadataReaders.read(sourcePath);
-      debugPrint('Metadata: $metadata');
-
-      final existing = await ref
-          .read(booksProvider.notifier)
-          .getTitlesByTitle(metadata.title);
-      if (existing != null) {
-        if (!mounted) return null;
-        final add = await _confirmDuplicate(); // now WAITS for the answer
-        if (!add) return null;
+      if (!Formats.isBookFile(sourcePath)) {
+        if (mounted) {
+          AppAlerts.displaySnackbar(
+              context, context.l10n.unsupportedFormat(picked.name));
+        }
+        return null;
       }
-
-      return (path: sourcePath, metadata: metadata);
+      debugPrint('Picked: ${picked.name} -> $sourcePath');
+      return sourcePath;
     } catch (e, st) {
       debugPrint('Import failed: $e\n$st');
       if (mounted) {

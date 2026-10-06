@@ -1,10 +1,12 @@
-import 'dart:io' show File, Platform;
+import 'dart:io' show File, FileSystemException, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:remove_diacritic/remove_diacritic.dart';
 // ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as p;
 import '../../data/data_export.dart';
+import '../../data/datasource/book_datasource_provider.dart';
 import '../../metadata/metadata.dart';
 import '../../utils/file_service.dart';
 import '../../utils/storage_permission.dart';
@@ -136,6 +138,79 @@ class BookNotifier extends Notifier<BookState> {
     return id;
   }
 
+  /// Adds the file at [sourcePath] to [book] as another format (the way
+  /// Calibre adds a format to an existing record): copied into the book's
+  /// folder as `<book file name>.<ext>` plus a new `data` row. Throws if the
+  /// book already has that format / file, or if anything fails (a copied
+  /// file is removed again).
+  Future<void> addFormat(Book book, String sourcePath) async {
+    final id = book.id;
+    if (id == null || book.path.isEmpty || book.filename.isEmpty) {
+      throw StateError('The book has no folder in the library');
+    }
+    final extension =
+        p.extension(sourcePath).replaceFirst('.', '').toLowerCase();
+    if (extension.isEmpty) throw StateError('The file has no extension');
+    final customPath = _customPath.isEmpty ? null : _customPath;
+    final target = await FileService().bookFilePath(
+      path: book.path,
+      filename: book.filename,
+      format: extension,
+      customPath: customPath,
+    );
+    if (await File(target).exists()) {
+      throw FileSystemException('The file already exists', target);
+    }
+    await FileService().copyFile(oldpath: sourcePath, newpath: target);
+    try {
+      await _repository.addFormat(
+          id, extension.toUpperCase(), book.filename, await File(target).length());
+    } catch (e) {
+      try {
+        await File(target).delete();
+      } catch (cleanupError) {
+        debugPrint('Cleanup after failed addFormat: $cleanupError');
+      }
+      rethrow;
+    }
+    await getBooks();
+  }
+
+  /// Books already in the library that look like the same book as
+  /// [metadata]: same title (case and accents ignored) and at least one
+  /// common author - or no real author on either side.
+  List<Book> findDuplicates(BookMetadata metadata) {
+    final title = _normalize(metadata.title);
+    if (title.isEmpty) return const [];
+    final authors = {
+      for (final a in metadata.authors)
+        if (!_isUnknownAuthor(a)) _normalize(a)
+    };
+    return [
+      for (final book in state.books)
+        if (_normalize(book.title) == title &&
+            _authorsMatch(authors, book.author))
+          book
+    ];
+  }
+
+  static bool _authorsMatch(Set<String> authors, String bookAuthor) {
+    final other = {
+      for (final a in bookAuthor.split('&'))
+        if (!_isUnknownAuthor(a)) _normalize(a)
+    };
+    if (authors.isEmpty || other.isEmpty) return true;
+    return authors.any(other.contains);
+  }
+
+  static bool _isUnknownAuthor(String author) {
+    final a = author.trim().toLowerCase();
+    return a.isEmpty || a == Calibre.unknown.toLowerCase() || a == 'unknown author';
+  }
+
+  static String _normalize(String text) =>
+      removeDiacritics(text).toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+
   Future<void> deleteBook(Book book) async {
     try {
       await _repository.deleteBook(book);
@@ -154,6 +229,7 @@ class BookNotifier extends Notifier<BookState> {
 
   Future<void> getBooks() async {
     final generation = _generation;
+    final datasource = ref.read(bookDatasourceProvider);
     String? root;
     try {
       root = await FileService()
@@ -173,6 +249,20 @@ class BookNotifier extends Notifier<BookState> {
         );
         return;
       }
+      // metadata.db exists but is damaged: don't open it (that would only
+      // throw, or "repair" it into an empty library) - HomePage offers to
+      // rebuild it from the metadata.opf files.
+      if (await datasource.isDamaged()) {
+        if (generation != _generation) return;
+        state = state.copyWith(
+          books: const [],
+          libraryRoot: root,
+          error: const LibraryLoadError.failed('metadata.db is damaged',
+              damagedDatabase: true),
+          loaded: true,
+        );
+        return;
+      }
       final books = await _repository.getAllBooks();
       if (generation != _generation) return; // library changed meanwhile
       if (root != state.libraryRoot) {
@@ -188,12 +278,38 @@ class BookNotifier extends Notifier<BookState> {
     } catch (e) {
       debugPrint('Library not loaded: $e');
       if (generation != _generation) return;
+      // metadata.db exists but can't be opened -> HomePage offers to
+      // rebuild it from the metadata.opf files.
+      var damaged = false;
+      try {
+        damaged = await datasource.isDatabaseDamaged(e);
+      } catch (checkError) {
+        debugPrint('Database check failed: $checkError');
+      }
+      if (generation != _generation) return;
       state = state.copyWith(
         books: const [],
         libraryRoot: root,
-        error: LibraryLoadError.failed('$e'),
+        error: LibraryLoadError.failed('$e', damagedDatabase: damaged),
         loaded: true,
       );
+    }
+  }
+
+  /// Rebuilds the damaged metadata.db of the current library from the
+  /// metadata.opf files in the book folders (see
+  /// [BookDatasource.restoreFromOpf]) and loads the library again.
+  /// Throws if the rebuild failed (the old database is kept then).
+  Future<LibraryRestoreResult> rebuildFromOpf(
+      {void Function(int done, int total)? onProgress}) async {
+    final datasource = ref.read(bookDatasourceProvider);
+    try {
+      return await datasource.restoreFromOpf(onProgress: onProgress);
+    } finally {
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      await getBooks();
     }
   }
 

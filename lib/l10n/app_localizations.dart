@@ -188,6 +188,12 @@ abstract class AppLocalizations {
   /// **'Import failed: {error}'**
   String importFailed(String error);
 
+  /// No description provided for @unsupportedFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'This file type isn\'t an e-book format: {file}'**
+  String unsupportedFormat(String file);
+
   /// No description provided for @changeView.
   ///
   /// In en, this message translates to:
@@ -632,6 +638,12 @@ abstract class AppLocalizations {
   /// **'Line spacing'**
   String get readerLineSpacing;
 
+  /// No description provided for @readerJustify.
+  ///
+  /// In en, this message translates to:
+  /// **'Justified text'**
+  String get readerJustify;
+
   /// No description provided for @readerTheme.
   ///
   /// In en, this message translates to:
@@ -698,10 +710,16 @@ abstract class AppLocalizations {
   /// **'Could not open the book: {error}'**
   String readerOpenError(String error);
 
+  /// No description provided for @readerDrmProtected.
+  ///
+  /// In en, this message translates to:
+  /// **'This book is DRM-protected, so it can\'t be opened.'**
+  String get readerDrmProtected;
+
   /// No description provided for @readerUnsupported.
   ///
   /// In en, this message translates to:
-  /// **'The built-in reader can only open EPUB books (this one is {format}).'**
+  /// **'The built-in reader can\'t open {format} books.'**
   String readerUnsupported(String format);
 
   /// No description provided for @readerZoom.
@@ -767,14 +785,26 @@ abstract class AppLocalizations {
   /// No description provided for @builtInReaderOn.
   ///
   /// In en, this message translates to:
-  /// **'EPUB and PDF books open in Calibre Touch'**
-  String get builtInReaderOn;
+  /// **'Opens in Calibre Touch: {formats}'**
+  String builtInReaderOn(String formats);
 
   /// No description provided for @builtInReaderOff.
   ///
   /// In en, this message translates to:
-  /// **'EPUB and PDF books open in the system\'s default app'**
+  /// **'Books open in the system\'s default app'**
   String get builtInReaderOff;
+
+  /// No description provided for @openLastBook.
+  ///
+  /// In en, this message translates to:
+  /// **'Open last book on startup'**
+  String get openLastBook;
+
+  /// No description provided for @openLastBookSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue reading the last book when the app starts'**
+  String get openLastBookSubtitle;
 
   /// No description provided for @libraryEmpty.
   ///
@@ -877,6 +907,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invalid identifier: {value}'**
   String invalidIdentifier(String value);
+
+  /// No description provided for @alreadyInLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Already in your library'**
+  String get alreadyInLibrary;
+
+  /// No description provided for @alreadyInLibraryText.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{title}\" by {author} is already in the library ({formats}).'**
+  String alreadyInLibraryText(String title, String author, String formats);
+
+  /// No description provided for @openLibraryCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the library copy'**
+  String get openLibraryCopy;
+
+  /// No description provided for @showLibraryCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the library copy'**
+  String get showLibraryCopy;
+
+  /// No description provided for @addAsFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Add {format} to this book'**
+  String addAsFormat(String format);
+
+  /// No description provided for @addAsNewBook.
+  ///
+  /// In en, this message translates to:
+  /// **'Add as a new book'**
+  String get addAsNewBook;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @formatAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'{format} added to the book'**
+  String formatAdded(String format);
+
+  /// No description provided for @booksAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} books added'**
+  String booksAdded(int count);
+
+  /// No description provided for @libraryDamaged.
+  ///
+  /// In en, this message translates to:
+  /// **'The library database (metadata.db) is damaged.'**
+  String get libraryDamaged;
+
+  /// No description provided for @databaseDamagedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The library database is damaged'**
+  String get databaseDamagedTitle;
+
+  /// No description provided for @databaseDamagedText.
+  ///
+  /// In en, this message translates to:
+  /// **'metadata.db exists but could not be opened. Would you like to rebuild the database from the metadata.opf files in the book folders? The damaged file is kept as a backup.'**
+  String get databaseDamagedText;
+
+  /// No description provided for @rebuildDatabase.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebuild database'**
+  String get rebuildDatabase;
+
+  /// No description provided for @rebuildingDatabase.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebuilding the database from metadata.opf files…'**
+  String get rebuildingDatabase;
+
+  /// No description provided for @rebuildDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} books restored.'**
+  String rebuildDone(int count);
+
+  /// No description provided for @rebuildRenumbered.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} books got a new id (missing or duplicate id).'**
+  String rebuildRenumbered(int count);
+
+  /// No description provided for @rebuildSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} book folders could not be read:'**
+  String rebuildSkipped(int count);
+
+  /// No description provided for @rebuildBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'The old database was saved as {file}.'**
+  String rebuildBackup(String file);
+
+  /// No description provided for @rebuildFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebuilding the database failed: {error}'**
+  String rebuildFailed(String error);
 }
 
 class _AppLocalizationsDelegate

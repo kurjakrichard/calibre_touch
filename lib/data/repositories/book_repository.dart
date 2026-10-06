@@ -7,4 +7,5 @@ abstract class BookRepository {
   Future<List<Book>> getAllBooks();
   Future<Book?> getBook(int bookId);
   Future<String?> getBookAuthorsByTitle(String title);
+  Future<void> addFormat(int bookId, String format, String name, int size);
 }

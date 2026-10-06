@@ -10,7 +10,6 @@ enum Bookkeys {
   filename(name: 'filename'),
   format(name: 'format'),
   formats(name: 'formats'),
-  // ignore: constant_identifier_names
   last_modified(name: 'last_modified'),
   description(name: 'description'),
   pages(name: 'pages'),
@@ -127,6 +126,16 @@ enum Formats {
   kepub,
   kfx,
   kpf;
+
+  /// Every book file extension Calibre knows (lower case, no dot).
+  static final Set<String> extensions = {for (final f in values) f.name};
+
+  /// True if [path] has one of [extensions].
+  static bool isBookFile(String path) {
+    final dot = path.lastIndexOf('.');
+    if (dot < 0 || dot == path.length - 1) return false;
+    return extensions.contains(path.substring(dot + 1).toLowerCase());
+  }
 }
 
 enum DropTriggers {
@@ -494,4 +503,4 @@ END '''),
   });
 
   final String name;
-}
+}

@@ -6,12 +6,12 @@ import '../providers/providers.dart';
 import '../utils/utils.dart';
 import 'app_alerts.dart';
 
-/// Language picker + library-folder picker + light/dark theme switcher +
-/// built-in reader vs. system app switch for EPUB/PDF.
+/// Library-folder picker (default location or a custom folder).
 ///
 /// Used both by the standalone [SettingsPage] (reachable later from the
 /// drawer) and embedded as a page inside onboarding, so the two never drift
-/// apart.
+/// apart. All other settings (language, theme, reader) live directly on the
+/// [SettingsPage].
 class SettingsForm extends ConsumerStatefulWidget {
   const SettingsForm({super.key});
 
@@ -91,34 +91,10 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
     final customPath = rawPath.isEmpty ? null : rawPath;
     final currentPath = customPath ?? _defaultPath ?? l10n.loading;
     final usingDefault = customPath == null;
-    final isDark = ref.watch(modeProvider) == 'dark';
-    final language = ref.watch(localeProvider).languageCode;
-    final useBuiltInReader = ref.watch(useBuiltInReaderProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.language),
-          title: Text(l10n.language),
-          subtitle: Text(l10n.languageSubtitle),
-          trailing: DropdownButton<String>(
-            value: language,
-            underline: const SizedBox.shrink(),
-            onChanged: (code) {
-              if (code != null) {
-                ref.read(localeProvider.notifier).setLanguage(code);
-              }
-            },
-            items: [
-              DropdownMenuItem(value: 'en', child: Text(l10n.languageEnglish)),
-              DropdownMenuItem(
-                  value: 'hu', child: Text(l10n.languageHungarian)),
-            ],
-          ),
-        ),
-        const Divider(),
         const SizedBox(height: 12),
         Text(
           l10n.libraryQuestion,
@@ -157,28 +133,6 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 24),
-        const Divider(),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero, 
-          title: Text(l10n.darkTheme),
-          subtitle: Text(l10n.darkThemeSubtitle),
-          value: isDark,
-          onChanged: (value) {
-            ref.read(modeProvider.notifier).setMode(value ? 'dark' : 'light');
-          },
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.menu_book),
-          title: Text(l10n.builtInReader),
-          subtitle: Text(useBuiltInReader
-              ? l10n.builtInReaderOn
-              : l10n.builtInReaderOff),
-          value: useBuiltInReader,
-          onChanged: (value) =>
-              ref.read(useBuiltInReaderProvider.notifier).set(value),
         ),
       ],
     );

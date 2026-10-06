@@ -25,6 +25,14 @@
       }
     }
   },
+  "unsupportedFormat": "This file type isn't an e-book format: {file}",
+  "@unsupportedFormat": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
   "changeView": "Change view",
   "viewCovers": "Covers",
   "viewList": "List",
@@ -168,6 +176,7 @@
   "readerSettings": "Reading settings",
   "readerFontSize": "Font size",
   "readerLineSpacing": "Line spacing",
+  "readerJustify": "Justified text",
   "readerTheme": "Page colour",
   "readerThemeLight": "Light",
   "readerThemeSepia": "Sepia",
@@ -196,7 +205,8 @@
       }
     }
   },
-  "readerUnsupported": "The built-in reader can only open EPUB books (this one is {format}).",
+  "readerDrmProtected": "This book is DRM-protected, so it can't be opened.",
+  "readerUnsupported": "The built-in reader can't open {format} books.",
   "@readerUnsupported": {
     "placeholders": {
       "format": {
@@ -238,8 +248,17 @@
     }
   },
   "builtInReader": "Built-in reader",
-  "builtInReaderOn": "EPUB and PDF books open in Calibre Touch",
-  "builtInReaderOff": "EPUB and PDF books open in the system's default app",
+  "builtInReaderOn": "Opens in Calibre Touch: {formats}",
+  "@builtInReaderOn": {
+    "placeholders": {
+      "formats": {
+        "type": "String"
+      }
+    }
+  },
+  "builtInReaderOff": "Books open in the system's default app",
+  "openLastBook": "Open last book on startup",
+  "openLastBookSubtitle": "Continue reading the last book when the app starts",
   "libraryEmpty": "There are no books in this library yet.",
   "libraryLocation": "Library folder: {path}",
   "@libraryLocation": {
@@ -281,6 +300,94 @@
   "@invalidIdentifier": {
     "placeholders": {
       "value": {
+        "type": "String"
+      }
+    }
+  },
+  "alreadyInLibrary": "Already in your library",
+  "alreadyInLibraryText": "\"{title}\" by {author} is already in the library ({formats}).",
+  "@alreadyInLibraryText": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "author": {
+        "type": "String"
+      },
+      "formats": {
+        "type": "String"
+      }
+    }
+  },
+  "openLibraryCopy": "Open the library copy",
+  "showLibraryCopy": "Show the library copy",
+  "addAsFormat": "Add {format} to this book",
+  "@addAsFormat": {
+    "placeholders": {
+      "format": {
+        "type": "String"
+      }
+    }
+  },
+  "addAsNewBook": "Add as a new book",
+  "cancel": "Cancel",
+  "formatAdded": "{format} added to the book",
+  "@formatAdded": {
+    "placeholders": {
+      "format": {
+        "type": "String"
+      }
+    }
+  },
+  "booksAdded": "{count} books added",
+  "@booksAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryDamaged": "The library database (metadata.db) is damaged.",
+  "databaseDamagedTitle": "The library database is damaged",
+  "databaseDamagedText": "metadata.db exists but could not be opened. Would you like to rebuild the database from the metadata.opf files in the book folders? The damaged file is kept as a backup.",
+  "rebuildDatabase": "Rebuild database",
+  "rebuildingDatabase": "Rebuilding the database from metadata.opf files…",
+  "rebuildDone": "{count} books restored.",
+  "@rebuildDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rebuildRenumbered": "{count} books got a new id (missing or duplicate id).",
+  "@rebuildRenumbered": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rebuildSkipped": "{count} book folders could not be read:",
+  "@rebuildSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rebuildBackup": "The old database was saved as {file}.",
+  "@rebuildBackup": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "rebuildFailed": "Rebuilding the database failed: {error}",
+  "@rebuildFailed": {
+    "placeholders": {
+      "error": {
         "type": "String"
       }
     }

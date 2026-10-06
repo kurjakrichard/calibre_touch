@@ -33,15 +33,18 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   device_info_plus: 13.2.0
+  android_intent_plus: ^6.1.0 # Android: open a book's folder in the Files app
   archive: ^4.0.0 # EPUB reader: unzip
+  # MOBI/AZW3: decompression + KF8 rebuild (LGPL-3.0). Vendored copy of
+  # pub 1.0.2 with our fixes - see packages/dart_mobi/CHANGELOG.md.
+  dart_mobi:
+    path: packages/dart_mobi
   equatable: ^2.0.5
   file_picker: ^12.3.0
-  flex_color_scheme: ^7.3.1
   flutter_riverpod: ^3.0.0
   flutter_widget_from_html_core: ^0.17.2 # EPUB reader: render chapters
   gap: ^3.0.1
   go_router: ^17.2.3
-  google_fonts: ^6.2.1
   html: ^0.15.5
   image: ^4.5.0 # cover.jpg: decode EPUB covers, encode JPEG
   intl: any # version pinned by flutter_localizations
@@ -49,10 +52,10 @@ dependencies:
   path_provider: ^2.1.4
   pdfrx: ^2.6.5 # PDF reader (PDFium). Windows build needs Developer Mode.
   permission_handler: ^12.0.1
+  receive_sharing_intent: ^1.9.0 # Android: "Open with" / Share -> add to library
   remove_diacritic: ^0.9.0
   shared_preferences: ^2.5.5
   smooth_page_indicator: ^1.2.1
-  sqflite: ^2.3.3+2
   sqflite_common_ffi: ^2.3.3
   sqlite3_flutter_libs: ^0.5.16
   sqlite3: ^2.1.0
@@ -106,7 +109,6 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/splash.png
     - assets/logo.png
     - assets/flutibre-icon.png
     - assets/cover.png
