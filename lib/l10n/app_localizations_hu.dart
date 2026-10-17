@@ -240,6 +240,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get useDefault => 'Alapértelmezett';
 
   @override
+  String get libraryLocationWarning =>
+      'FIGYELEM: A könyvtárat nem biztonságos hálózati meghajtóra vagy felhővel szinkronizált mappába (OneDrive, Google Drive, Dropbox…) tenni, mert megsérülhet.';
+
+  @override
   String get darkTheme => 'Sötét téma';
 
   @override
@@ -438,6 +442,12 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get noRecentBook => 'Még nem nyitottál meg könyvet';
+
+  @override
+  String get help => 'Súgó';
+
+  @override
+  String get helpOpenFailed => 'Nem sikerült megnyitni a súgót';
 
   @override
   String get published => 'Megjelenés';

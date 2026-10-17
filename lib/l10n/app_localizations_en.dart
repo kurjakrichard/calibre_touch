@@ -239,6 +239,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get useDefault => 'Use default';
 
   @override
+  String get libraryLocationWarning =>
+      'WARNING: Putting the library on a network drive or in a cloud-synced folder (OneDrive, Google Drive, Dropbox…) is not safe and can corrupt it.';
+
+  @override
   String get darkTheme => 'Dark theme';
 
   @override
@@ -436,6 +440,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noRecentBook => 'No book opened yet';
+
+  @override
+  String get help => 'Help';
+
+  @override
+  String get helpOpenFailed => 'Could not open the help page';
 
   @override
   String get published => 'Published';

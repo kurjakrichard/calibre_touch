@@ -518,6 +518,12 @@ abstract class AppLocalizations {
   /// **'Use default'**
   String get useDefault;
 
+  /// No description provided for @libraryLocationWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'WARNING: Putting the library on a network drive or in a cloud-synced folder (OneDrive, Google Drive, Dropbox…) is not safe and can corrupt it.'**
+  String get libraryLocationWarning;
+
   /// No description provided for @darkTheme.
   ///
   /// In en, this message translates to:
@@ -853,6 +859,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No book opened yet'**
   String get noRecentBook;
+
+  /// No description provided for @help.
+  ///
+  /// In en, this message translates to:
+  /// **'Help'**
+  String get help;
+
+  /// No description provided for @helpOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the help page'**
+  String get helpOpenFailed;
 
   /// No description provided for @published.
   ///

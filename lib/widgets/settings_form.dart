@@ -134,7 +134,43 @@ class SettingsFormState extends ConsumerState<SettingsForm> {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        _LibraryLocationWarning(text: l10n.libraryLocationWarning),
       ],
+    );
+  }
+}
+
+/// Warns that a library on a network share or in a cloud-synced folder
+/// (OneDrive, Google Drive, Dropbox…) can get corrupted – SQLite's locking
+/// isn't reliable there. Calibre gives the same advice.
+class _LibraryLocationWarning extends StatelessWidget {
+  const _LibraryLocationWarning({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final error = Theme.of(context).colorScheme.error;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: error),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, color: error),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: error, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

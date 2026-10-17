@@ -1,5 +1,5 @@
 name: calibre_touch
-description: "A new Flutter project."
+description: "Calibre Touch - a calibre-compatible ebook library and reader."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -59,6 +59,7 @@ dependencies:
   sqflite_common_ffi: ^2.3.3
   sqlite3_flutter_libs: ^0.5.16
   sqlite3: ^2.1.0
+  url_launcher: ^6.3.1 # Drawer: "Help" opens the online manual
   xml: ">=6.5.0 <8.0.0" # EPUB reader: container.xml, OPF, NCX
   flutter_native_splash: ^2.4.7 # used at runtime (preserve/remove in main.dart / app.dart)
 
@@ -93,6 +94,23 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
+  msix: ^3.16.12 # Windows: MSIX package for the Microsoft Store (build_msix.bat)
+
+# Windows MSIX package (Microsoft Store). Build: build_msix.bat
+# identity_name / publisher_display_name / publisher must match Partner Center:
+#   Apps and games -> Calibre Touch -> Product management -> Product identity
+#   (Package/Identity/Name, Package/Identity/PublisherDisplayName, Package/Identity/Publisher)
+# msix_version: a.b.c.0 - the Store needs the last number to be 0; raise it for every upload.
+msix_config:
+  display_name: Calibre Touch
+  publisher_display_name: Richard Kurjak
+  identity_name: KurjakRichard.CalibreTouch # TODO: replace with Package/Identity/Name from Partner Center
+  publisher: CN=32DEFD2D-9D37-49B8-8DD6-DA02364366C0 
+  msix_version: 1.0.0.0
+  logo_path: assets/logo.png
+  languages: en-us, hu-hu
+  architecture: x64
+  output_name: calibre_touch
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

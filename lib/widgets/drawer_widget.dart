@@ -2,12 +2,32 @@ import 'package:calibre_touch/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import 'book_actions.dart';
 
 class DrawerWidget extends ConsumerWidget {
   const DrawerWidget({super.key});
+
+  /// Online user manual, opened by the "Help" tile.
+  static final Uri helpUrl =
+      Uri.parse('https://kurjakrichard.github.io/calibre_touch_public/');
+
+  /// Opens [helpUrl] in the system browser; snackbar if that fails.
+  static Future<void> _openHelp(BuildContext context) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final failed = context.l10n.helpOpenFailed;
+    var ok = false;
+    try {
+      ok = await launchUrl(helpUrl, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('Help: $e');
+    }
+    if (!ok) {
+      messenger?.showSnackBar(SnackBar(content: Text('$failed\n$helpUrl')));
+    }
+  }
 
   /// On phones/tablets this widget is the Scaffold's slide-out drawer:
   /// close it before opening another page, otherwise it is still open when
@@ -94,6 +114,17 @@ class DrawerWidget extends ConsumerWidget {
             onTap: () {
               _closeDrawer(context);
               context.pushNamed(Routes.settings.name);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.help_outline, color: textColor),
+            title: Text(
+              context.l10n.help,
+              style: TextStyle(color: textColor),
+            ),
+            onTap: () {
+              _closeDrawer(context);
+              _openHelp(context);
             },
           ),
         ],

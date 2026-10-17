@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -133,11 +134,14 @@ class ReaderDarkModeButton extends StatelessWidget {
 /// The book is shown one chapter (spine section) at a time. Swipe left/right
 /// turns a page (one screenful); past the end of a chapter the next one
 /// starts, before the start the previous one is shown from its end, so the
-/// book reads continuously. Text is justified (can be turned off). Reading
-/// position and settings are remembered.
+/// book reads continuously. Scrolling works the same way: pulling on past
+/// the end of a chapter and letting go opens the next one, pulling past the
+/// start opens the previous one at its end. Text is justified (can be turned
+/// off). Reading position and settings are remembered.
 ///
 /// Desktop keys: Esc closes, Right/PageDown/Space = next page, Left/PageUp =
-/// previous page, Up/Down scroll a little.
+/// previous page, Up/Down scroll a little (and at the end / start of a
+/// chapter go on to the next / previous one, like the mouse wheel).
 class ReaderPage extends ConsumerStatefulWidget {
   static Page<void> pageBuilder(BuildContext context, GoRouterState state) =>
       CustomTransitionPage<void>(
@@ -168,6 +172,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
   static const _justifyKey = 'readerJustify';
   static const double _maxTextWidth = 760;
 
+  /// How far (logical px) to pull past the end / start of a chapter before
+  /// letting go moves to the next / previous chapter.
+  static const double _pullThreshold = 64;
+
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _focusNode = FocusNode();
 
@@ -182,6 +190,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
   int _section = 0;
   ScrollController _scroll = ScrollController();
   Timer? _saveTimer;
+
+  /// How far the current drag has pulled past the end (positive) or the
+  /// start (negative) of the chapter. Also drives the arrow hint.
+  final _pull = ValueNotifier<double>(0);
 
   bool _showControls = false;
   double _fontSize = 18;
@@ -240,6 +252,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     _saveTimer?.cancel();
     _savePosition();
     _scroll.dispose();
+    _pull.dispose();
     _focusNode.dispose();
     if (_isMobile) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -299,6 +312,43 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     _saveTimer = Timer(const Duration(seconds: 2), _savePosition);
   }
 
+  /// Scrolling on past a chapter's end (or start) with the finger moves to
+  /// the next (or previous) chapter when the finger is lifted. Flings that
+  /// merely run into the edge don't (no drag details then).
+  bool _onScrollNotification(ScrollNotification n) {
+    _onScroll();
+    if (n.depth != 0) return false;
+    if (n is ScrollStartNotification) {
+      _pull.value = 0;
+    } else if (n is OverscrollNotification) {
+      // Clamping physics (Android, desktop): the list is at its edge and
+      // the finger keeps going.
+      if (n.dragDetails != null) _pull.value += n.overscroll;
+    } else if (n is ScrollUpdateNotification) {
+      if (n.dragDetails != null) {
+        final m = n.metrics;
+        if (m.pixels > m.maxScrollExtent) {
+          // Bouncing physics (iOS): the list itself goes past its edge.
+          _pull.value = m.pixels - m.maxScrollExtent;
+        } else if (m.pixels < m.minScrollExtent) {
+          _pull.value = m.pixels - m.minScrollExtent;
+        } else {
+          // Back inside the text: the pull is cancelled.
+          _pull.value = 0;
+        }
+      }
+    } else if (n is ScrollEndNotification) {
+      final pull = _pull.value;
+      _pull.value = 0;
+      if (pull >= _pullThreshold) {
+        _goToSection(_section + 1);
+      } else if (pull <= -_pullThreshold) {
+        _goToSection(_section - 1, atEnd: true);
+      }
+    }
+    return false;
+  }
+
   void _savePosition() {
     if (_document == null) return;
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
@@ -341,20 +391,42 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     _savePosition();
   }
 
-  /// Jumps to the end of the chapter. The chapter is laid out lazily, so its
-  /// length can grow for a few frames - keep jumping until it settles.
-  void _jumpToEnd([int attempts = 30, double last = -1]) {
-    if (attempts <= 0) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (!_scroll.hasClients) {
-        _jumpToEnd(attempts - 1, last);
+  /// Jumps to the end of the chapter. Big chapters are built in the
+  /// background (empty, length 0, for a while) and then laid out lazily, so
+  /// the length keeps growing for some frames: keep jumping to the end until
+  /// it has a length and stays the same for a few frames (at most ~3 s).
+  /// Stops if the chapter changes or the reader scrolls away meanwhile.
+  void _jumpToEnd() {
+    final controller = _scroll;
+    var frames = 0;
+    var stable = 0;
+    double? last;
+    void step(Duration _) {
+      if (!mounted || !identical(controller, _scroll) || ++frames > 180) {
         return;
       }
-      final max = _scroll.position.maxScrollExtent;
-      _scroll.jumpTo(max);
-      if (max != last) _jumpToEnd(attempts - 1, max);
-    });
+      if (controller.hasClients) {
+        final position = controller.position;
+        final max = position.maxScrollExtent;
+        final jumped = last;
+        if (jumped != null &&
+            (position.pixels - jumped).abs() > 1 &&
+            (position.pixels - max).abs() > 1) {
+          return; // the reader scrolled meanwhile
+        }
+        if (max > 0 && max == jumped) {
+          if (++stable >= 5) return;
+        } else {
+          stable = 0;
+        }
+        controller.jumpTo(max);
+        last = max;
+      }
+      WidgetsBinding.instance.addPostFrameCallback(step);
+      WidgetsBinding.instance.scheduleFrame();
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback(step);
   }
 
   /// How far one page turn scrolls: the visible height minus one line, so
@@ -391,6 +463,43 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     _scroll.jumpTo(
         (position.pixels - _pageStep).clamp(0.0, position.maxScrollExtent));
     _onScroll();
+  }
+
+  /// Down key / wheel: a little further; already at the end of the chapter
+  /// → the next chapter from its start.
+  void _lineDown() {
+    if (!_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (position.pixels >= position.maxScrollExtent - 1) {
+      _goToSection(_section + 1);
+    } else {
+      _scrollBy(60);
+    }
+  }
+
+  /// Up key / wheel: a little back; already at the start of the chapter →
+  /// the previous chapter at its end.
+  void _lineUp() {
+    if (!_scroll.hasClients) return;
+    if (_scroll.position.pixels <= 1) {
+      _goToSection(_section - 1, atEnd: true);
+    } else {
+      _scrollBy(-60);
+    }
+  }
+
+  /// Mouse wheel against the end / start of a chapter (the list itself
+  /// can't go further) moves to the next / previous chapter. Runs before
+  /// the list scrolls, so the wheel first has to reach the edge.
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    final dy = event.scrollDelta.dy;
+    if (dy > 0 && position.pixels >= position.maxScrollExtent - 1) {
+      _goToSection(_section + 1);
+    } else if (dy < 0 && position.pixels <= 1) {
+      _goToSection(_section - 1, atEnd: true);
+    }
   }
 
   void _scrollBy(double delta) {
@@ -476,7 +585,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
                           child: Slider(
                             value: _fontSize,
                             min: 12,
-                            max: 40,
+                            max: 50,
                             divisions: 28,
                             label: _fontSize.round().toString(),
                             onChanged: (v) => update(() => _fontSize = v),
@@ -573,6 +682,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
       body = Stack(
         children: [
           Positioned.fill(child: _buildText(document)),
+          Positioned.fill(child: _buildPullHint(document)),
           _buildTopBar(book, document),
           _buildBottomBar(document),
         ],
@@ -587,10 +697,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
               _showControls ? _toggleControls() : _close(),
           const SingleActivator(LogicalKeyboardKey.arrowRight): _nextPage,
           const SingleActivator(LogicalKeyboardKey.arrowLeft): _previousPage,
-          const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-              _scrollBy(60),
-          const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-              _scrollBy(-60),
+          const SingleActivator(LogicalKeyboardKey.arrowDown): _lineDown,
+          const SingleActivator(LogicalKeyboardKey.arrowUp): _lineUp,
           const SingleActivator(LogicalKeyboardKey.pageDown): _nextPage,
           const SingleActivator(LogicalKeyboardKey.space): _nextPage,
           const SingleActivator(LogicalKeyboardKey.pageUp): _previousPage,
@@ -647,15 +755,21 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
         if (velocity < -300) _nextPage();
         if (velocity > 300) _previousPage();
       },
+      // Only reached when the chapter is too short to scroll (otherwise
+      // the list takes the vertical drag): swipe up/down = next/previous.
+      onVerticalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity < -300) _goToSection(_section + 1);
+        if (velocity > 300) _goToSection(_section - 1, atEnd: true);
+      },
       child: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _maxTextWidth),
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (_) {
-                _onScroll();
-                return false;
-              },
+            child: Listener(
+              onPointerSignal: _onPointerSignal,
+              child: NotificationListener<ScrollNotification>(
+              onNotification: _onScrollNotification,
               child: HtmlWidget(
                 html,
                 // New key per chapter: forget the previous chapter's layout.
@@ -676,11 +790,47 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
                 onTapUrl: (url) => _onLink(url, section),
               ),
             ),
+            ),
           ),
         ),
       ),
     );
   }
+
+  /// Arrow at the bottom (or top) edge that fades in while pulling past the
+  /// end (or start) of a chapter; fully visible = letting go turns.
+  Widget _buildPullHint(EpubDocument document) => IgnorePointer(
+        child: ValueListenableBuilder<double>(
+          valueListenable: _pull,
+          builder: (context, pull, _) {
+            final next = pull > 0;
+            final hasTarget = next
+                ? _section < document.sections.length - 1
+                : _section > 0;
+            if (pull == 0 || !hasTarget) return const SizedBox.shrink();
+            final progress = (pull.abs() / _pullThreshold).clamp(0.0, 1.0);
+            return SafeArea(
+              child: Align(
+                alignment:
+                    next ? Alignment.bottomCenter : Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Opacity(
+                    opacity: progress,
+                    child: Icon(
+                      next
+                          ? Icons.keyboard_double_arrow_down
+                          : Icons.keyboard_double_arrow_up,
+                      size: 32,
+                      color: _theme.text,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
 
   /// Text blocks justified (if turned on) unless the book aligns them
   /// itself, e.g. a centred line.

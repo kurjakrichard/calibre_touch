@@ -11,22 +11,31 @@ import '../../metadata/opf_writer.dart';
 import '../../utils/utils.dart';
 import '../models/book.dart';
 
-/// Calibre's schema version for the schema created in [_onCreate]
+/// Calibre's schema version for the schema created in [_createSchema]
 /// (matches `pragma user_version` at the end of Calibre's
 /// resources/metadata_sqlite.sql for a schema that has
-/// books_pages_link but not yet book_storage).
+/// books_pages_link and book_storage - Calibre 9.x).
 ///
-/// sqflite writes the `version` passed to openDatabase into
-/// `PRAGMA user_version`. Calibre reads that same pragma to decide which
-/// schema upgrades to run, so it MUST be Calibre's version and not 1 -
-/// otherwise Calibre replays upgrade_version_1, _2, ... on a database
-/// that already has everything and fails with
-/// "trigger fkc_delete_on_authors already exists".
-const int calibreSchemaVersion = 27;
+/// Calibre reads `PRAGMA user_version` to decide which schema upgrades to
+/// run (upgrade_version_N for N = user_version, user_version+1, ...), and
+/// most of them are plain CREATEs. So the number must always describe the
+/// schema that is really there:
+///  - too low → Calibre replays an upgrade that already happened and fails
+///    ("trigger fkc_delete_on_authors already exists" when it was 1,
+///    "table book_storage already exists" when this app re-stamped a
+///    Calibre-upgraded 28 library as 27) and offers to restore the database.
+///  - so the app only ever RAISES it ([_ensureSchemaVersion]); a higher
+///    number written by a newer Calibre is left alone.
+///
+/// Keep this number and [_calibreSchemaSql] in sync. When Calibre bumps
+/// its version nothing has to change here: libraries made by this app stay
+/// at 28 and Calibre upgrades them itself. Raising this number means
+/// adding the matching step to [_upgradeSchema] too.
+const int calibreSchemaVersion = 28;
 
 /// Sqlite-backed datasource for [Book].
 ///
-/// The schema created in [_onCreate] is the real Calibre-style
+/// The schema created in [_createSchema] is the real Calibre-style
 /// "recreate_schema.sql" schema (authors, books, publishers, series,
 /// tags, ratings, languages, identifiers, data, comments, plus all the
 /// books_*_link join tables, indexes, views and triggers) - not the old
@@ -127,16 +136,13 @@ class BookDatasource {
       await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
     }
     sqfliteFfiInit();
-    final Database database = await databaseFactoryFfi.openDatabase(
-      path,
-      options: OpenDatabaseOptions(
-        version: calibreSchemaVersion,
-        onUpgrade: _onUpgrade,
-        onCreate: _onCreate,
-      ),
-    );
+    // No `version:` here on purpose - sqflite would write it into
+    // user_version even when that LOWERS Calibre's value (see
+    // [calibreSchemaVersion]). [_ensureSchemaVersion] handles it instead.
+    final Database database = await databaseFactoryFfi.openDatabase(path);
     try {
       await _repairSchemaIfIncomplete(database);
+      await _ensureSchemaVersion(database);
       await database.execute('PRAGMA foreign_keys = ON');
       await _removeLegacyIdentifiers(database);
     } catch (_) {
@@ -1129,19 +1135,54 @@ class BookDatasource {
     }
   }
 
-  // This creates tables in our database - the full schema from
-  // recreate_schema.sql (see the class doc comment above for the
-  // title_sort()/uuid4() caveat).
-  // Databases created by older builds of this app were stamped with
-  // user_version=1 (or 2, if Calibre already tried upgrading them). The
-  // schema itself is already current, so nothing to migrate - sqflite
-  // re-stamps user_version with [calibreSchemaVersion] after this runs.
-  // Those libraries also never got .calnotes/.caltrash, so add them here.
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+  /// Brings `PRAGMA user_version` UP to [calibreSchemaVersion], never down.
+  ///  - no tables yet (new library): full schema ([_createSchema]), stamp.
+  ///  - below [calibreSchemaVersion]: [_upgradeSchema], stamp.
+  ///  - equal or higher (e.g. a newer Calibre already upgraded the
+  ///    library): nothing - the number is left exactly as Calibre wrote it,
+  ///    so Calibre never replays an upgrade it already ran.
+  /// Schema changes and the new number are written in one transaction.
+  Future<void> _ensureSchemaVersion(Database db) async {
+    final rows = await db.rawQuery('PRAGMA user_version');
+    final current =
+        rows.isEmpty ? 0 : (rows.first.values.first as int?) ?? 0;
+    if (current >= calibreSchemaVersion) return;
+
+    final hasTables = (await db.rawQuery(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+            "AND name NOT LIKE 'sqlite_%' LIMIT 1"))
+        .isNotEmpty;
+    await db.transaction((txn) async {
+      if (hasTables) {
+        await _upgradeSchema(txn, current);
+      } else {
+        await _createSchema(txn);
+      }
+      await txn.execute('PRAGMA user_version = $calibreSchemaVersion');
+    });
+    // New libraries, and old ones made by early builds of this app, have
+    // no .calnotes/.caltrash yet.
     await _createLibraryFolders(dirname(db.path));
   }
 
-  Future<void> _onCreate(Database db, int version) async {
+  // Libraries below [calibreSchemaVersion] whose schema is otherwise
+  // current: made by this app before 2026-10-12 (stamped 27, or 1/2 by
+  // very old builds), or by Calibre 8.x (27). They lack book_storage
+  // (Calibre's upgrade_version_27); IF NOT EXISTS because a library Calibre
+  // already upgraded may have it while this app had re-stamped it 27.
+  // A future Calibre schema bump does NOT need a step here: the app keeps
+  // creating version-28 libraries and Calibre upgrades them itself.
+  Future<void> _upgradeSchema(DatabaseExecutor db, int fromVersion) async {
+    if (fromVersion < 28) {
+      await db.execute(_bookStorageSql.replaceFirst(
+          'CREATE TABLE book_storage', 'CREATE TABLE IF NOT EXISTS book_storage'));
+    }
+  }
+
+  // This creates tables in our database - the full schema from
+  // recreate_schema.sql (see the class doc comment above for the
+  // title_sort()/uuid4() caveat).
+  Future<void> _createSchema(DatabaseExecutor db) async {
     // Run the schema one statement at a time. On Android, sqflite's
     // execute() goes through SQLiteDatabase.execSQL, which silently runs
     // ONLY THE FIRST statement of a multi-statement string - so passing
@@ -1154,8 +1195,6 @@ class BookDatasource {
       batch.execute(statement);
     }
     await batch.commit(noResult: true);
-
-    await _createLibraryFolders(dirname(db.path));
   }
 
   /// Older versions of this app stored the bundled placeholder cover
@@ -1189,6 +1228,8 @@ class BookDatasource {
           "AND name NOT LIKE 'sqlite_%'"))
         row['name'] as String,
     };
+    // Brand-new metadata.db: [_ensureSchemaVersion] creates the schema.
+    if (tables.isEmpty) return;
     if (tables.contains('books')) {
       final hasBooks =
           (await db.rawQuery('SELECT 1 FROM books LIMIT 1')).isNotEmpty;
@@ -1282,6 +1323,21 @@ class BookDatasource {
     return statements;
   }
 
+  /// Calibre's BOOK_STORAGE_SCHEMA (schema_upgrades.py, upgrade_version_27
+  /// -> user_version 28): per-book localStorage of Calibre's viewers.
+  /// Part of [_calibreSchemaSql]; also added on its own by [_upgradeSchema].
+  static const String _bookStorageSql = '''
+CREATE TABLE book_storage ( id INTEGER PRIMARY KEY,
+    book INTEGER NOT NULL,
+    format TEXT NOT NULL COLLATE NOCASE,
+    user_type TEXT NOT NULL,
+    user TEXT NOT NULL,
+    timestamp REAL NOT NULL,
+    data TEXT NOT NULL DEFAULT '{}',
+    UNIQUE(book, format, user_type, user),
+    FOREIGN KEY (book) REFERENCES books(id) ON DELETE CASCADE
+)''';
+
   /// Calibre's recreate_schema.sql - see the class doc comment above for
   /// the title_sort()/uuid4() caveat. Always run it through
   /// [_splitSqlScript], never as a single execute().
@@ -1334,6 +1390,7 @@ CREATE TABLE books_series_link ( id INTEGER PRIMARY KEY,
                                           series INTEGER NOT NULL,
                                           UNIQUE(book)
                                         );
+$_bookStorageSql;
 CREATE TABLE books_pages_link (
     book INTEGER PRIMARY KEY,
     pages INTEGER DEFAULT 0 NOT NULL,
