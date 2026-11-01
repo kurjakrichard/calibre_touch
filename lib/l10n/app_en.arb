@@ -282,6 +282,8 @@
   "retry": "Retry",
   "continueReading": "Continue reading",
   "noRecentBook": "No book opened yet",
+  "recentBooks": "Recently read",
+  "recentBooksHint": "Press and hold: recently read books",
   "help": "Help",
   "helpOpenFailed": "Could not open the help page",
   "published": "Published",

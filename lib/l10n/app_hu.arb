@@ -127,6 +127,8 @@
   "retry": "Újra",
   "continueReading": "Olvasás folytatása",
   "noRecentBook": "Még nem nyitottál meg könyvet",
+  "recentBooks": "Legutóbb olvasott könyvek",
+  "recentBooksHint": "Nyomva tartva: legutóbb olvasott könyvek",
   "help": "Súgó",
   "helpOpenFailed": "Nem sikerült megnyitni a súgót",
   "published": "Megjelenés",

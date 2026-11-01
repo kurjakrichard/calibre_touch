@@ -103,7 +103,7 @@ class _PdfReaderPageState extends ConsumerState<PdfReaderPage>
     // frame: providers can't be modified while the widget tree builds).
     if (book != null && PdfReaderPage.canRead(book)) {
       Future.microtask(() {
-        if (mounted) ref.read(lastReadBookProvider.notifier).set(book);
+        if (mounted) ref.read(recentBooksProvider.notifier).add(book);
       });
     }
     if (book != null && PdfReaderPage.canRead(book)) _resolvePath(book);

@@ -442,6 +442,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noRecentBook => 'No book opened yet';
 
   @override
+  String get recentBooks => 'Recently read';
+
+  @override
+  String get recentBooksHint => 'Press and hold: recently read books';
+
+  @override
   String get help => 'Help';
 
   @override

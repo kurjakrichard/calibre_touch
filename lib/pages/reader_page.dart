@@ -235,7 +235,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage>
     // frame: providers can't be modified while the widget tree builds).
     if (book != null && ReaderPage.canRead(book)) {
       Future.microtask(() {
-        if (mounted) ref.read(lastReadBookProvider.notifier).set(book);
+        if (mounted) ref.read(recentBooksProvider.notifier).add(book);
       });
     }
     if (book != null && ReaderPage.canRead(book)) {

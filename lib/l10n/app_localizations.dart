@@ -860,6 +860,18 @@ abstract class AppLocalizations {
   /// **'No book opened yet'**
   String get noRecentBook;
 
+  /// No description provided for @recentBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently read'**
+  String get recentBooks;
+
+  /// No description provided for @recentBooksHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Press and hold: recently read books'**
+  String get recentBooksHint;
+
   /// No description provided for @help.
   ///
   /// In en, this message translates to:

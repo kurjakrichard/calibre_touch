@@ -444,6 +444,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get noRecentBook => 'Még nem nyitottál meg könyvet';
 
   @override
+  String get recentBooks => 'Legutóbb olvasott könyvek';
+
+  @override
+  String get recentBooksHint => 'Nyomva tartva: legutóbb olvasott könyvek';
+
+  @override
   String get help => 'Súgó';
 
   @override

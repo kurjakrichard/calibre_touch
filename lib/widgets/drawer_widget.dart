@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../data/data_export.dart';
 import '../l10n/l10n.dart';
 import '../providers/providers.dart';
 import 'book_actions.dart';
+import 'book_cover.dart';
 
 class DrawerWidget extends ConsumerWidget {
   const DrawerWidget({super.key});
@@ -39,6 +41,43 @@ class DrawerWidget extends ConsumerWidget {
     if (scaffold != null && scaffold.isDrawerOpen) {
       scaffold.closeDrawer();
     }
+  }
+
+  /// Long press on "Continue reading": the last [RecentBooksNotifier.max]
+  /// books read (that still exist), newest first; opens the chosen one.
+  static Future<void> _chooseRecentBook(
+      BuildContext context, WidgetRef ref) async {
+    final books = ref.read(booksProvider).books;
+    final recent = ref
+        .read(recentBooksProvider)
+        .map((id) => books.where((b) => b.id == id).firstOrNull)
+        .nonNulls
+        .toList();
+    if (recent.isEmpty) return;
+    final book = await showDialog<Book>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(context.l10n.recentBooks),
+        children: [
+          for (final book in recent)
+            ListTile(
+              leading: SizedBox(
+                width: 36,
+                height: 52,
+                child: BookCover(book: book),
+              ),
+              title: Text(book.title,
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle: Text(book.author,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              onTap: () => Navigator.pop(context, book),
+            ),
+        ],
+      ),
+    );
+    if (book == null || !context.mounted) return;
+    _closeDrawer(context);
+    BookActions.open(context, ref, book);
   }
 
   @override
@@ -83,27 +122,36 @@ class DrawerWidget extends ConsumerWidget {
                   ],
                 )),
           ),
-          ListTile(
-            enabled: lastBook != null,
-            leading: Icon(Icons.menu_book_outlined,
-                color: lastBook != null ? textColor : disabledColor),
-            title: Text(
-              context.l10n.continueReading,
-              style: TextStyle(
+          // Hover only (manual): a touch long press must reach the tile's
+          // onLongPress, not show the tooltip.
+          Tooltip(
+            message: lastBook == null ? '' : context.l10n.recentBooksHint,
+            triggerMode: TooltipTriggerMode.manual,
+            child: ListTile(
+              enabled: lastBook != null,
+              leading: Icon(Icons.menu_book_outlined,
                   color: lastBook != null ? textColor : disabledColor),
+              title: Text(
+                context.l10n.continueReading,
+                style: TextStyle(
+                    color: lastBook != null ? textColor : disabledColor),
+              ),
+              subtitle: Text(
+                lastBook?.title ?? context.l10n.noRecentBook,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: disabledColor),
+              ),
+              onTap: lastBook == null
+                  ? null
+                  : () {
+                      _closeDrawer(context);
+                      BookActions.open(context, ref, lastBook);
+                    },
+              onLongPress: lastBook == null
+                  ? null
+                  : () => _chooseRecentBook(context, ref),
             ),
-            subtitle: Text(
-              lastBook?.title ?? context.l10n.noRecentBook,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: disabledColor),
-            ),
-            onTap: lastBook == null
-                ? null
-                : () {
-                    _closeDrawer(context);
-                    BookActions.open(context, ref, lastBook);
-                  },
           ),
           ListTile(
             leading: Icon(Icons.settings_outlined, color: textColor),
